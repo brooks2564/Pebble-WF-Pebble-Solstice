@@ -1,0 +1,7 @@
+build/
+*.Zone.Identifier
+shot_*.png
+screenshot*.png
+*.zip
+*.tar.gz
+*.pbw

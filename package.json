@@ -1,0 +1,29 @@
+{
+  "name": "solstice",
+  "author": "Brooks",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Solstice",
+    "uuid": "86c3c754-aa2f-4fdd-aaad-c3cb061d4bb8",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["emery", "basalt", "chalk", "aplite", "diorite"],
+    "watchapp": { "watchface": true },
+    "capabilities": ["location"],
+    "messageKeys": {
+      "TEMPERATURE": 0,
+      "CONDITIONS": 1,
+      "REQUEST_WEATHER": 2,
+      "WIND_SPEED": 3,
+      "HUMIDITY": 4,
+      "HIGH_TEMP": 5,
+      "LOW_TEMP": 6
+    },
+    "resources": {
+      "media": []
+    }
+  }
+}
