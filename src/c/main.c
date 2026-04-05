@@ -21,7 +21,6 @@
 #define ANIM_TOTAL_FRAMES   20
 #define MAX_PARTICLES        16
 #define MAX_STARS            12
-#define MAX_FLOWERS          10
 #define WEATHER_REFRESH_MIN  30
 
 // Weather condition codes (mapped from Open-Meteo weather_code)
@@ -35,6 +34,12 @@
 
 // Time-of-day phases
 #define PHASE_NIGHT      0
+
+// Seasons
+#define SEASON_WINTER    0
+#define SEASON_SPRING    1
+#define SEASON_SUMMER    2
+#define SEASON_FALL      3
 #define PHASE_DAWN       1
 #define PHASE_DAY        2
 #define PHASE_DUSK       3
@@ -49,12 +54,6 @@ typedef struct {
 
 typedef struct {
     int16_t x;
-    int16_t height;  // stem height — grows with steps
-    bool    bloomed;
-} Flower;
-
-typedef struct {
-    int16_t x;
     int16_t y;
     int8_t  brightness; // 0-3 for twinkle
 } Star;
@@ -65,29 +64,23 @@ static Layer     *s_canvas;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_temp_layer;
-static TextLayer *s_steps_layer;
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-static TextLayer *s_hr_layer;
-static char s_hr_buf[12];
-#endif // HR sensor
+
 
 static char s_time_buf[8];
 static char s_date_buf[16];
-static char s_temp_buf[12];
-static char s_steps_buf[12];
+static char s_temp_buf[20];
 
 // Weather
 static int  s_temperature    = 0;
 static int  s_high_temp      = 0;
 static int  s_low_temp       = 0;
+static int  s_wind_speed     = 0;
+static char s_wind_dir[4]    = "--";
 static int  s_weather_code   = WEATHER_UNKNOWN;
 static bool s_weather_valid  = false;
 
 // Health
-static int s_steps     = 0;
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-static int s_heart_rate = 0;
-#endif // HR sensor
+
 
 // Animation
 static AppTimer *s_anim_timer  = NULL;
@@ -101,21 +94,34 @@ static int   s_star_frame = 0;
 // Scene elements
 static Particle s_particles[MAX_PARTICLES];
 static Star     s_stars[MAX_STARS];
-static Flower   s_flowers[MAX_FLOWERS];
 static int      s_frame_counter = 0; // incremented each minute for pseudo-animation
 
 // Current time phase
-static int s_hour   = 12;
-static int s_minute = 0;
+static int s_hour        = 12;
+static int s_minute      = 0;
+static int s_month       = 0;
+static int s_sunrise_mins = 360;   // default 6:00am
+static int s_sunset_mins  = 1200;  // default 8:00pm
 
 // ───────── Color Helpers ─────────
 
-// Get time-of-day phase (0=night, 1=dawn, 2=day, 3=dusk)
+// Get time-of-day phase using real sunrise/sunset times
 static int get_phase(int hour) {
-    if (hour >= 6 && hour < 8)   return PHASE_DAWN;
-    if (hour >= 8 && hour < 18)  return PHASE_DAY;
-    if (hour >= 18 && hour < 20) return PHASE_DUSK;
+    int mins = hour * 60 + s_minute;
+    int dawn_start = s_sunrise_mins - 60;
+    int dusk_end   = s_sunset_mins  + 60;
+    if (mins >= dawn_start && mins < s_sunrise_mins) return PHASE_DAWN;
+    if (mins >= s_sunrise_mins && mins < s_sunset_mins) return PHASE_DAY;
+    if (mins >= s_sunset_mins  && mins < dusk_end)   return PHASE_DUSK;
     return PHASE_NIGHT;
+}
+
+// Get current season from month
+static int get_season(void) {
+    if (s_month == 11 || s_month <= 1) return SEASON_WINTER;
+    if (s_month <= 4)                  return SEASON_SPRING;
+    if (s_month <= 7)                  return SEASON_SUMMER;
+    return SEASON_FALL;
 }
 
 #ifdef PBL_COLOR
@@ -164,12 +170,6 @@ static GColor mountain_color(int phase) {
 static GColor sun_color(void) { return GColorChromeYellow; }
 static GColor moon_color(void) { return GColorPastelYellow; }
 
-static GColor flower_stem_color(void) { return GColorMayGreen; }
-static GColor flower_petal_color(int idx) {
-    GColor options[] = { GColorRed, GColorYellow, GColorMagenta, GColorOrange,
-                         GColorCyan, GColorRoseVale, GColorVividViolet };
-    return options[idx % 7];
-}
 #endif
 
 // Compute lunar phase as 0-255 (0=new moon, 128=full moon, 255=just before new)
@@ -243,48 +243,11 @@ static void init_particles(GRect bounds) {
     }
 }
 
-static void init_flowers(GRect bounds) {
-    int garden_start = bounds.size.w / 6;
-    int garden_width = bounds.size.w * 2 / 3;
-    for (int i = 0; i < MAX_FLOWERS; i++) {
-        int seed = pseudo_rand(i * 3571);
-        s_flowers[i].x      = garden_start + ((seed >> 4) % garden_width);
-        s_flowers[i].height  = 0;
-        s_flowers[i].bloomed = false;
-    }
-}
-
 // ───────── Update Health Data ─────────
 static void update_health(void) {
 #if PBL_API_EXISTS(health_service_peek_current_value)
-    s_steps = (int)health_service_peek_current_value(HealthMetricStepCount);
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-    HealthValue hr = health_service_peek_current_value(HealthMetricHeartRateBPM);
-    if (hr > 0) s_heart_rate = (int)hr;
-#endif // HR sensor
 #endif
 
-    // Map steps to flower growth (goal: 10,000 steps = full garden)
-    int step_pct = s_steps * 100 / 10000;
-    if (step_pct > 100) step_pct = 100;
-    int flowers_active = step_pct * MAX_FLOWERS / 100;
-    if (flowers_active < 1 && s_steps > 0) flowers_active = 1;
-
-    for (int i = 0; i < MAX_FLOWERS; i++) {
-        if (i < flowers_active) {
-            int target_h = 8 + (i * 3) % 12; // varied heights
-            if (s_flowers[i].height < target_h) {
-                s_flowers[i].height += 2;
-                if (s_flowers[i].height > target_h) s_flowers[i].height = target_h;
-            }
-            s_flowers[i].bloomed = (s_flowers[i].height >= target_h);
-        }
-    }
-
-    snprintf(s_steps_buf, sizeof(s_steps_buf), "%d", s_steps);
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-    snprintf(s_hr_buf, sizeof(s_hr_buf), "%d", s_heart_rate > 0 ? s_heart_rate : 0);
-#endif // HR sensor
 }
 
 // ───────── Drawing Functions ─────────
@@ -343,17 +306,20 @@ static void draw_celestial(GContext *ctx, GRect bounds) {
     int phase = get_phase(s_hour);
     bool is_sun = (phase == PHASE_DAWN || phase == PHASE_DAY || phase == PHASE_DUSK);
 
-    // Calculate arc position: map hour+minute to angle
-    // Sun visible 6:00-20:00 (14 hours), moon 20:00-6:00 (10 hours)
+    // Calculate arc position using real sunrise/sunset times
     int total_min, elapsed_min;
+    int current_mins = s_hour * 60 + s_minute;
     if (is_sun) {
-        total_min = 14 * 60;
-        elapsed_min = (s_hour - 6) * 60 + s_minute;
+        total_min   = s_sunset_mins - s_sunrise_mins;
+        elapsed_min = current_mins - s_sunrise_mins;
     } else {
-        total_min = 10 * 60;
-        if (s_hour >= 20) elapsed_min = (s_hour - 20) * 60 + s_minute;
-        else elapsed_min = (s_hour + 4) * 60 + s_minute;
+        total_min = (24 * 60 - s_sunset_mins) + s_sunrise_mins;
+        if (current_mins >= s_sunset_mins) elapsed_min = current_mins - s_sunset_mins;
+        else elapsed_min = (24 * 60 - s_sunset_mins) + current_mins;
     }
+    if (total_min <= 0) total_min = 1;
+    if (elapsed_min < 0) elapsed_min = 0;
+    if (elapsed_min > total_min) elapsed_min = total_min;
 
     // Arc from left to right across sky
     // angle: 0 (left horizon) → 180 degrees (right horizon)
@@ -405,23 +371,7 @@ static void draw_celestial(GContext *ctx, GRect bounds) {
     }
 #endif
 
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-    // Heart rate pulse ring around celestial body
-    if (s_heart_rate > 40) {
-        int pulse_phase = (s_frame_counter * 6 + s_heart_rate) % 20;
-        int pulse_r = body_r + 8 + pulse_phase / 4;
 
-#ifdef PBL_COLOR
-        GColor pulse_c = (s_heart_rate > 120) ? GColorRed :
-                         (s_heart_rate > 80)  ? GColorOrange : GColorMintGreen;
-        graphics_context_set_stroke_color(ctx, pulse_c);
-#else
-        graphics_context_set_stroke_color(ctx, GColorWhite);
-#endif
-        graphics_context_set_stroke_width(ctx, 1);
-        graphics_draw_circle(ctx, GPoint(body_x, body_y), pulse_r);
-    }
-#endif // HR sensor
 }
 
 // Draw clouds
@@ -457,54 +407,108 @@ static void draw_clouds(GContext *ctx, GRect bounds) {
 static void draw_mountains(GContext *ctx, GRect bounds) {
     int sky_h   = bounds.size.h * 60 / 100;
     int phase   = get_phase(s_hour);
+    int season  = get_season();
     int base_y  = sky_h;
 
-    // Back mountain range (taller, darker)
-    {
 #ifdef PBL_COLOR
-        graphics_context_set_fill_color(ctx, mountain_color(phase));
-#else
-        graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorBlack : GColorBlack);
+    // Seasonal back-range color
+    GColor back_c;
+    if (season == SEASON_WINTER)      back_c = GColorDarkGray;
+    else if (season == SEASON_SPRING) back_c = GColorDarkGreen;
+    else if (season == SEASON_SUMMER) back_c = GColorArmyGreen;
+    else                              back_c = GColorWindsorTan;
+    if (phase == PHASE_NIGHT) back_c = GColorBlack;
+
+    // Seasonal front-range color
+    GColor front_c;
+    if (season == SEASON_WINTER)      front_c = GColorLightGray;
+    else if (season == SEASON_SPRING) front_c = GColorMayGreen;
+    else if (season == SEASON_SUMMER) front_c = GColorIslamicGreen;
+    else                              front_c = GColorOrange;
+    if (phase == PHASE_NIGHT) front_c = GColorDarkGray;
 #endif
-        int num_peaks = 5;
-        for (int i = 0; i < num_peaks; i++) {
-            int px = bounds.size.w * i / (num_peaks - 1);
-            int peak_h = 20 + pseudo_rand(i * 1913) % 25;
-            // Triangle: three points
-            GPoint tri[3] = {
-                GPoint(px - 25, base_y),
+
+    // Back mountain range
+    int num_back = 5;
+    for (int i = 0; i < num_back; i++) {
+        int px = bounds.size.w * i / (num_back - 1);
+        int peak_h = 20 + pseudo_rand(i * 1913) % 25;
+        GPoint tri[3] = {
+            GPoint(px - 25, base_y),
+            GPoint(px, base_y - peak_h),
+            GPoint(px + 25, base_y)
+        };
+        GPathInfo info = { .num_points = 3, .points = tri };
+        GPath *p = gpath_create(&info);
+#ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, back_c);
+        gpath_draw_filled(ctx, p);
+        // Winter snow caps
+        if (season == SEASON_WINTER) {
+            int cap_h = peak_h / 3;
+            GPoint cap[3] = {
+                GPoint(px - cap_h, base_y - peak_h + cap_h),
                 GPoint(px, base_y - peak_h),
-                GPoint(px + 25, base_y)
+                GPoint(px + cap_h, base_y - peak_h + cap_h)
             };
-            GPathInfo info = { .num_points = 3, .points = tri };
-            GPath *p = gpath_create(&info);
-            gpath_draw_filled(ctx, p);
-            gpath_destroy(p);
+            GPathInfo ci = { .num_points = 3, .points = cap };
+            GPath *cp = gpath_create(&ci);
+            graphics_context_set_fill_color(ctx, GColorWhite);
+            gpath_draw_filled(ctx, cp);
+            gpath_destroy(cp);
         }
+#else
+        if (phase == PHASE_NIGHT) {
+            // Night: light gray silhouette against black sky
+            graphics_context_set_fill_color(ctx, GColorLightGray);
+            gpath_draw_filled(ctx, p);
+        } else {
+            // Day/dawn/dusk: black fill visible against white/light sky
+            graphics_context_set_fill_color(ctx, GColorBlack);
+            gpath_draw_filled(ctx, p);
+            // Winter snow caps on B&W (day only)
+            if (season == SEASON_WINTER) {
+                int cap_h = peak_h / 3;
+                GPoint cap[3] = {
+                    GPoint(px - cap_h, base_y - peak_h + cap_h),
+                    GPoint(px, base_y - peak_h),
+                    GPoint(px + cap_h, base_y - peak_h + cap_h)
+                };
+                GPathInfo ci = { .num_points = 3, .points = cap };
+                GPath *cp = gpath_create(&ci);
+                graphics_context_set_fill_color(ctx, GColorWhite);
+                gpath_draw_filled(ctx, cp);
+                gpath_destroy(cp);
+            }
+        }
+#endif
+        gpath_destroy(p);
     }
 
-    // Front mountain range (shorter, slightly different shade)
-    {
+    // Front mountain range — outline on B&W for depth
+    int num_front = 4;
+    for (int i = 0; i < num_front; i++) {
+        int px = bounds.size.w * (2 * i + 1) / (2 * num_front);
+        int peak_h = 12 + pseudo_rand(i * 2741 + 100) % 15;
+        GPoint tri[3] = {
+            GPoint(px - 20, base_y),
+            GPoint(px, base_y - peak_h),
+            GPoint(px + 20, base_y)
+        };
+        GPathInfo info = { .num_points = 3, .points = tri };
+        GPath *p = gpath_create(&info);
 #ifdef PBL_COLOR
-        GColor front_c = (phase == PHASE_NIGHT) ? GColorDarkGray : GColorArmyGreen;
         graphics_context_set_fill_color(ctx, front_c);
+        gpath_draw_filled(ctx, p);
 #else
-        graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorBlack : GColorBlack);
+        // Fill black, then outline white for depth on B&W
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        gpath_draw_filled(ctx, p);
+        graphics_context_set_stroke_color(ctx, GColorWhite);
+        graphics_context_set_stroke_width(ctx, 1);
+        gpath_draw_outline(ctx, p);
 #endif
-        int num_peaks = 4;
-        for (int i = 0; i < num_peaks; i++) {
-            int px = bounds.size.w * (2 * i + 1) / (2 * num_peaks);
-            int peak_h = 12 + pseudo_rand(i * 2741 + 100) % 15;
-            GPoint tri[3] = {
-                GPoint(px - 20, base_y),
-                GPoint(px, base_y - peak_h),
-                GPoint(px + 20, base_y)
-            };
-            GPathInfo info = { .num_points = 3, .points = tri };
-            GPath *p = gpath_create(&info);
-            gpath_draw_filled(ctx, p);
-            gpath_destroy(p);
-        }
+        gpath_destroy(p);
     }
 }
 
@@ -516,7 +520,7 @@ static void draw_terrain(GContext *ctx, GRect bounds) {
 #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, terrain_color(phase));
 #else
-    graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorBlack : GColorWhite);
+    graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorDarkGray : GColorWhite);
 #endif
 
     // Rolling hills using overlapping circles
@@ -532,49 +536,8 @@ static void draw_terrain(GContext *ctx, GRect bounds) {
         int hr = 30 + (i * 7) % 15;
         graphics_fill_circle(ctx, GPoint(hx, hy), hr);
     }
-}
 
-// Flower garden (grows with steps!)
-static void draw_flowers(GContext *ctx, GRect bounds) {
-    int ground_y = bounds.size.h * 60 / 100 + 3;
 
-    for (int i = 0; i < MAX_FLOWERS; i++) {
-        if (s_flowers[i].height <= 0) continue;
-
-        int fx = s_flowers[i].x;
-        int stem_base = ground_y + 2;
-        int stem_top  = stem_base - s_flowers[i].height;
-
-        // Stem
-#ifdef PBL_COLOR
-        graphics_context_set_stroke_color(ctx, flower_stem_color());
-#else
-        graphics_context_set_stroke_color(ctx, GColorBlack);
-#endif
-        graphics_context_set_stroke_width(ctx, 1);
-        // Slightly curved stem
-        graphics_draw_line(ctx, GPoint(fx, stem_base), GPoint(fx + 1, stem_top));
-
-        // Bloom
-        if (s_flowers[i].bloomed) {
-#ifdef PBL_COLOR
-            graphics_context_set_fill_color(ctx, flower_petal_color(i));
-#else
-            graphics_context_set_fill_color(ctx, GColorWhite);
-#endif
-            // Simple flower: center dot + 4 petals
-            int r = 2;
-            graphics_fill_circle(ctx, GPoint(fx + 1, stem_top), r);
-            graphics_fill_rect(ctx, GRect(fx - 1, stem_top - r - 1, 4, 2), 0, GCornerNone);
-            graphics_fill_rect(ctx, GRect(fx - 1, stem_top + r, 4, 2), 0, GCornerNone);
-
-#ifdef PBL_COLOR
-            // Center dot
-            graphics_context_set_fill_color(ctx, GColorYellow);
-            graphics_fill_rect(ctx, GRect(fx, stem_top - 1, 2, 2), 0, GCornerNone);
-#endif
-        }
-    }
 }
 
 // Weather particles (rain drops or snowflakes)
@@ -653,15 +616,6 @@ static void draw_complication_bar(GContext *ctx, GRect bounds) {
     graphics_context_set_stroke_width(ctx, 1);
     graphics_draw_line(ctx, GPoint(4, bar_y), GPoint(bounds.size.w - 4, bar_y));
 
-    // Step progress bar
-    int bar_w = bounds.size.w - 20;
-    int filled = bar_w * s_steps / 10000;
-    if (filled > bar_w) filled = bar_w;
-    int prog_y = bounds.size.h - 6;
-    graphics_context_set_fill_color(ctx, GColorDarkGray);
-    graphics_fill_rect(ctx, GRect(10, prog_y, bar_w, 3), 1, GCornersAll);
-    graphics_context_set_fill_color(ctx, GColorMayGreen);
-    graphics_fill_rect(ctx, GRect(10, prog_y, filled, 3), 1, GCornersAll);
 
 #else
     graphics_context_set_fill_color(ctx, GColorBlack);
@@ -673,6 +627,41 @@ static void draw_complication_bar(GContext *ctx, GRect bounds) {
 }
 
 // ───────── Master Draw Callback ─────────
+// Battery indicator (top-right corner)
+static void draw_battery(GContext *ctx, GRect bounds) {
+    BatteryChargeState state = battery_state_service_peek();
+    int pct = state.charge_percent;
+    int bx = bounds.size.w - 20, by = 4;
+    int bw = 14, bh = 7;
+    // Outline
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_rect(ctx, GRect(bx, by, bw, bh));
+    // Tip
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_fill_rect(ctx, GRect(bx + bw, by + 2, 2, 3), 0, GCornerNone);
+    // Fill — red below 20%
+#ifdef PBL_COLOR
+    GColor fill_c = (pct <= 20) ? GColorRed : (state.is_charging ? GColorGreen : GColorYellow);
+#else
+    GColor fill_c = GColorWhite;
+#endif
+    int fill_w = (bw - 2) * pct / 100;
+    if (fill_w < 1) fill_w = 1;
+    graphics_context_set_fill_color(ctx, fill_c);
+    graphics_fill_rect(ctx, GRect(bx + 1, by + 1, fill_w, bh - 2), 0, GCornerNone);
+}
+
+// Bluetooth disconnect indicator (top-left corner)
+static void draw_bt_indicator(GContext *ctx, GRect bounds) {
+    if (connection_service_peek_pebble_app_connection()) return;
+    // Draw a small X in top-left
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_line(ctx, GPoint(4, 4), GPoint(10, 10));
+    graphics_draw_line(ctx, GPoint(10, 4), GPoint(4, 10));
+}
+
 static void canvas_update_proc(Layer *layer, GContext *ctx) {
     GRect bounds = layer_get_bounds(layer);
 
@@ -700,11 +689,15 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     // 8. Terrain / ground
     draw_terrain(ctx, bounds);
 
-    // 9. Flowers (step-driven)
-    draw_flowers(ctx, bounds);
 
     // 10. Complication bar
     draw_complication_bar(ctx, bounds);
+
+    // 11. Battery indicator
+    draw_battery(ctx, bounds);
+
+    // 12. Bluetooth disconnect indicator
+    draw_bt_indicator(ctx, bounds);
 }
 
 // ───────── Animation Timer ─────────
@@ -741,6 +734,7 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
 static void update_time(struct tm *tick_time) {
     s_hour   = tick_time->tm_hour;
     s_minute = tick_time->tm_min;
+    s_month  = tick_time->tm_mon;
 
     // Time string
     if (clock_is_24h_style()) {
@@ -797,16 +791,24 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     Tuple *cond_tuple = dict_find(iterator, MESSAGE_KEY_CONDITIONS);
     Tuple *high_tuple = dict_find(iterator, MESSAGE_KEY_HIGH_TEMP);
     Tuple *low_tuple  = dict_find(iterator, MESSAGE_KEY_LOW_TEMP);
+    Tuple *wind_tuple = dict_find(iterator, MESSAGE_KEY_WIND_SPEED);
+    Tuple *wdir_tuple = dict_find(iterator, MESSAGE_KEY_WIND_DIR);
+    Tuple *sr_tuple   = dict_find(iterator, MESSAGE_KEY_SUNRISE_MINS);
+    Tuple *ss_tuple   = dict_find(iterator, MESSAGE_KEY_SUNSET_MINS);
 
-    if (temp_tuple) {
-        s_temperature = (int)temp_tuple->value->int32;
-        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d°", s_temperature);
-        text_layer_set_text(s_temp_layer, s_temp_buf);
-        s_weather_valid = true;
-    }
-
+    if (temp_tuple) { s_temperature = (int)temp_tuple->value->int32; s_weather_valid = true; }
     if (high_tuple) s_high_temp = (int)high_tuple->value->int32;
     if (low_tuple)  s_low_temp  = (int)low_tuple->value->int32;
+    if (wind_tuple) s_wind_speed = (int)wind_tuple->value->int32;
+    if (wdir_tuple) snprintf(s_wind_dir, sizeof(s_wind_dir), "%s", wdir_tuple->value->cstring);
+    if (sr_tuple)   s_sunrise_mins = (int)sr_tuple->value->int32;
+    if (ss_tuple)   s_sunset_mins  = (int)ss_tuple->value->int32;
+
+    if (s_weather_valid) {
+        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° H:%d L:%d %s %dmph",
+                 s_temperature, s_high_temp, s_low_temp, s_wind_dir, s_wind_speed);
+        text_layer_set_text(s_temp_layer, s_temp_buf);
+    }
 
     if (cond_tuple) {
         const char *c = cond_tuple->value->cstring;
@@ -841,9 +843,9 @@ static void window_load(Window *window) {
     int compl_bar_y = bounds.size.h - (bounds.size.h * 18 / 100);
     int sky_h = bounds.size.h * 60 / 100;
 
-    // Time: centered in the sky area, big and bold
+    // Time: in lower portion of sky, below the moon arc path
     int time_h = 42;
-    int time_y = sky_h / 2 - time_h / 2 + 2;
+    int time_y = sky_h * 2 / 3 - time_h / 2;
     s_time_layer = text_layer_create(GRect(0, time_y, bounds.size.w, time_h + 6));
     text_layer_set_background_color(s_time_layer, GColorClear);
 #ifdef PBL_COLOR
@@ -871,48 +873,21 @@ static void window_load(Window *window) {
     layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
 
     // Temperature: in complication bar, left side
-    int comp_text_y = compl_bar_y + 4;
-    s_temp_layer = text_layer_create(GRect(8, comp_text_y, bounds.size.w / 3, 20));
+    int comp_text_y = compl_bar_y + 8;
+    s_temp_layer = text_layer_create(GRect(0, comp_text_y, bounds.size.w, 14));
     text_layer_set_background_color(s_temp_layer, GColorClear);
     text_layer_set_text_color(s_temp_layer, GColorWhite);
-    text_layer_set_font(s_temp_layer,
-        fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_text_alignment(s_temp_layer, GTextAlignmentLeft);
-    text_layer_set_text(s_temp_layer, "--°");
+    text_layer_set_font(s_temp_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+    text_layer_set_text_alignment(s_temp_layer, GTextAlignmentCenter);
+    text_layer_set_text(s_temp_layer, "--° H:-- L:-- -- --mph");
     layer_add_child(window_layer, text_layer_get_layer(s_temp_layer));
 
-    // Steps: center of complication bar
-    s_steps_layer = text_layer_create(GRect(bounds.size.w / 3, comp_text_y,
-                                            bounds.size.w / 3, 20));
-    text_layer_set_background_color(s_steps_layer, GColorClear);
-    text_layer_set_text_color(s_steps_layer, GColorWhite);
-    text_layer_set_font(s_steps_layer,
-        fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_text_alignment(s_steps_layer, GTextAlignmentCenter);
-    text_layer_set_text(s_steps_layer, "0");
-    layer_add_child(window_layer, text_layer_get_layer(s_steps_layer));
 
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-    // Heart rate: right side of complication bar
-    s_hr_layer = text_layer_create(GRect(bounds.size.w * 2 / 3, comp_text_y,
-                                         bounds.size.w / 3 - 8, 20));
-    text_layer_set_background_color(s_hr_layer, GColorClear);
-#ifdef PBL_COLOR
-    text_layer_set_text_color(s_hr_layer, GColorMelon);
-#else
-    text_layer_set_text_color(s_hr_layer, GColorWhite);
-#endif
-    text_layer_set_font(s_hr_layer,
-        fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_text_alignment(s_hr_layer, GTextAlignmentRight);
-    text_layer_set_text(s_hr_layer, "-- bpm");
-    layer_add_child(window_layer, text_layer_get_layer(s_hr_layer));
-#endif // HR sensor
+
 
     // ── Initialize scene ──
     init_stars(bounds);
     init_particles(bounds);
-    init_flowers(bounds);
     update_health();
 
     // Set initial time
@@ -926,10 +901,7 @@ static void window_unload(Window *window) {
     text_layer_destroy(s_time_layer);
     text_layer_destroy(s_date_layer);
     text_layer_destroy(s_temp_layer);
-    text_layer_destroy(s_steps_layer);
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-    text_layer_destroy(s_hr_layer);
-#endif // HR sensor
+
 
     if (s_anim_timer) {
         app_timer_cancel(s_anim_timer);
@@ -956,7 +928,7 @@ static void init(void) {
     // AppMessage for weather
     app_message_register_inbox_received(inbox_received_callback);
     app_message_register_inbox_dropped(inbox_dropped_callback);
-    app_message_open(256, 64);
+    app_message_open(512, 64);
 }
 
 static void deinit(void) {

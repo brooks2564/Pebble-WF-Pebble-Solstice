@@ -1,7 +1,6 @@
 // Solstice Watchface — PebbleKit JS
 // Fetches weather from Open-Meteo (free, no API key)
 
-// WMO Weather Codes → human-readable condition strings
 function weatherCodeToCondition(code) {
     if (code === 0)                             return 'Clear';
     if (code >= 1  && code <= 3)                return 'Cloudy';
@@ -16,6 +15,11 @@ function weatherCodeToCondition(code) {
     return 'Cloudy';
 }
 
+function degreesToCompass(deg) {
+    var dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    return dirs[Math.round(deg / 45) % 8];
+}
+
 function getWeather() {
     navigator.geolocation.getCurrentPosition(
         function(pos) {
@@ -25,8 +29,8 @@ function getWeather() {
             var url = 'https://api.open-meteo.com/v1/forecast?' +
                 'latitude=' + lat +
                 '&longitude=' + lon +
-                '&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m' +
-                '&daily=temperature_2m_max,temperature_2m_min' +
+                '&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m' +
+                '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset' +
                 '&temperature_unit=fahrenheit' +
                 '&wind_speed_unit=mph' +
                 '&forecast_days=1' +
@@ -38,31 +42,41 @@ function getWeather() {
                 if (req.status === 200) {
                     try {
                         var data = JSON.parse(req.responseText);
-
-                        var temp       = Math.round(data.current.temperature_2m);
-                        var code       = data.current.weather_code;
-                        var wind       = Math.round(data.current.wind_speed_10m);
-                        var humidity   = Math.round(data.current.relative_humidity_2m);
-                        var condition  = weatherCodeToCondition(code);
-
-                        var highTemp = 0;
-                        var lowTemp  = 0;
+                        var temp     = Math.round(data.current.temperature_2m);
+                        var code     = data.current.weather_code;
+                        var wind     = Math.round(data.current.wind_speed_10m);
+                        var windDir  = degreesToCompass(data.current.wind_direction_10m);
+                        var humidity = Math.round(data.current.relative_humidity_2m);
+                        var condition = weatherCodeToCondition(code);
+                        var highTemp = 0, lowTemp = 0;
+                        var sunriseMins = 360, sunsetMins = 1200;
                         if (data.daily && data.daily.temperature_2m_max) {
                             highTemp = Math.round(data.daily.temperature_2m_max[0]);
                             lowTemp  = Math.round(data.daily.temperature_2m_min[0]);
                         }
-
+                        if (data.daily && data.daily.sunrise) {
+                            var sr = data.daily.sunrise[0]; // e.g. "2026-04-04T06:23"
+                            var srParts = sr.split('T')[1].split(':');
+                            sunriseMins = parseInt(srParts[0]) * 60 + parseInt(srParts[1]);
+                        }
+                        if (data.daily && data.daily.sunset) {
+                            var ss = data.daily.sunset[0];
+                            var ssParts = ss.split('T')[1].split(':');
+                            sunsetMins = parseInt(ssParts[0]) * 60 + parseInt(ssParts[1]);
+                        }
                         var msg = {
-                            'TEMPERATURE':    temp,
-                            'CONDITIONS':     condition,
-                            'WIND_SPEED':     wind,
-                            'HUMIDITY':       humidity,
-                            'HIGH_TEMP':      highTemp,
-                            'LOW_TEMP':       lowTemp
+                            'TEMPERATURE':  temp,
+                            'CONDITIONS':   condition,
+                            'WIND_SPEED':   wind,
+                            'WIND_DIR':     windDir,
+                            'HUMIDITY':     humidity,
+                            'HIGH_TEMP':    highTemp,
+                            'LOW_TEMP':     lowTemp,
+                            'SUNRISE_MINS': sunriseMins,
+                            'SUNSET_MINS':  sunsetMins
                         };
-
                         Pebble.sendAppMessage(msg, function() {
-                            console.log('Weather sent: ' + temp + '°F, ' + condition);
+                            console.log('Weather sent: ' + temp + 'F, ' + condition + ', ' + windDir + ' ' + wind + 'mph');
                         }, function(e) {
                             console.log('Weather send failed: ' + JSON.stringify(e));
                         });
@@ -73,25 +87,19 @@ function getWeather() {
                     console.log('Weather HTTP error: ' + req.status);
                 }
             };
-            req.onerror = function() {
-                console.log('Weather request failed');
-            };
+            req.onerror = function() { console.log('Weather request failed'); };
             req.send();
         },
-        function(err) {
-            console.log('Geolocation error: ' + err.message);
-        },
+        function(err) { console.log('Geolocation error: ' + err.message); },
         { timeout: 15000, maximumAge: 600000 }
     );
 }
 
-// Fetch weather on launch
 Pebble.addEventListener('ready', function() {
     console.log('Solstice JS ready');
     getWeather();
 });
 
-// Respond to weather refresh requests from C side
 Pebble.addEventListener('appmessage', function(e) {
     if (e.payload['REQUEST_WEATHER']) {
         getWeather();
