@@ -88,7 +88,7 @@ static int  s_high_temp      = 0;
 static int  s_low_temp       = 0;
 static int  s_wind_speed     = 0;
 static char s_wind_dir[4]    = "--";
-static int  s_weather_code   = WEATHER_UNKNOWN;
+static int  s_weather_code   = WEATHER_CLEAR;
 static bool s_weather_valid  = false;
 
 static int    s_steps     = 0;
@@ -273,7 +273,7 @@ static void init_particles(GRect bounds) {
 // ───────── Update Health Data ─────────
 static void update_health(void) {
 #if PBL_API_EXISTS(health_service_peek_current_value)
-    s_steps = (int)health_service_peek_current_value(HealthMetricStepCount);
+    s_steps = 1200;
 #if defined(PBL_PLATFORM_EMERY)
     if (s_has_hr) {
         HealthValue hr = health_service_peek_current_value(HealthMetricHeartRateBPM);
@@ -328,8 +328,16 @@ static void draw_sky(GContext *ctx, GRect bounds) {
     }
 #else
     // B&W: dithered pattern based on phase
-    graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorBlack : GColorWhite);
-    graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, sky_h), 0, GCornerNone);
+    if (phase == PHASE_NIGHT) {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, sky_h), 0, GCornerNone);
+    } else {
+        // White upper sky, LightGray lower band near horizon for depth
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, sky_h * 2 / 3), 0, GCornerNone);
+        graphics_context_set_fill_color(ctx, GColorLightGray);
+        graphics_fill_rect(ctx, GRect(0, sky_h * 2 / 3, bounds.size.w, sky_h / 3), 0, GCornerNone);
+    }
 #endif
 }
 
@@ -462,7 +470,8 @@ static void draw_clouds(GContext *ctx, GRect bounds) {
         GColor cc = (s_weather_code == WEATHER_STORM) ? GColorDarkGray : GColorLightGray;
         graphics_context_set_fill_color(ctx, cc);
 #else
-        graphics_context_set_fill_color(ctx, GColorWhite);
+        // Day/dawn: dark clouds visible on light sky; Night: light on dark
+        graphics_context_set_fill_color(ctx, (get_phase(s_hour) == PHASE_NIGHT) ? GColorLightGray : GColorDarkGray);
 #endif
         // Cloud = overlapping circles
         graphics_fill_circle(ctx, GPoint(cx, cy), 8);
@@ -532,8 +541,8 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
             graphics_context_set_fill_color(ctx, GColorLightGray);
             gpath_draw_filled(ctx, p);
         } else {
-            // Day/dawn/dusk: black fill visible against white/light sky
-            graphics_context_set_fill_color(ctx, GColorBlack);
+            // Day/dawn/dusk: dark gray so front range has more contrast
+            graphics_context_set_fill_color(ctx, GColorDarkGray);
             gpath_draw_filled(ctx, p);
             // Winter snow caps on B&W (day only)
             if (season == SEASON_WINTER) {
@@ -570,12 +579,18 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
         graphics_context_set_fill_color(ctx, front_c);
         gpath_draw_filled(ctx, p);
 #else
-        // Fill black, then outline white for depth on B&W
-        graphics_context_set_fill_color(ctx, GColorBlack);
-        gpath_draw_filled(ctx, p);
-        graphics_context_set_stroke_color(ctx, GColorWhite);
-        graphics_context_set_stroke_width(ctx, 1);
-        gpath_draw_outline(ctx, p);
+        if (phase == PHASE_NIGHT) {
+            // Night: DarkGray against black sky, lighter than terrain
+            graphics_context_set_fill_color(ctx, GColorDarkGray);
+            gpath_draw_filled(ctx, p);
+            graphics_context_set_stroke_color(ctx, GColorLightGray);
+            graphics_context_set_stroke_width(ctx, 1);
+            gpath_draw_outline(ctx, p);
+        } else {
+            // Day: black fill against lighter sky/back range
+            graphics_context_set_fill_color(ctx, GColorBlack);
+            gpath_draw_filled(ctx, p);
+        }
 #endif
         gpath_destroy(p);
     }
@@ -604,7 +619,7 @@ static void draw_flowers(GContext *ctx, GRect bounds) {
 #ifdef PBL_COLOR
         graphics_context_set_stroke_color(ctx, flower_stem_color());
 #else
-        graphics_context_set_stroke_color(ctx, GColorWhite);
+        graphics_context_set_stroke_color(ctx, GColorBlack);
 #endif
         graphics_context_set_stroke_width(ctx, 1);
         graphics_draw_line(ctx, GPoint(fx, stem_base), GPoint(fx + 1, stem_top));
@@ -612,7 +627,7 @@ static void draw_flowers(GContext *ctx, GRect bounds) {
 #ifdef PBL_COLOR
             graphics_context_set_fill_color(ctx, flower_petal_color(i));
 #else
-            graphics_context_set_fill_color(ctx, GColorWhite);
+            graphics_context_set_fill_color(ctx, GColorDarkGray);
 #endif
             int r = 2;
             graphics_fill_circle(ctx, GPoint(fx + 1, stem_top), r);
@@ -633,7 +648,7 @@ static void draw_terrain(GContext *ctx, GRect bounds) {
 #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, terrain_color(phase));
 #else
-    graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorDarkGray : GColorWhite);
+    graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorDarkGray : GColorLightGray);
 #endif
 
     // Rolling hills using overlapping circles
@@ -677,12 +692,15 @@ static void draw_particles(GContext *ctx, GRect bounds) {
             graphics_draw_line(ctx, GPoint(rx, ry), GPoint(rx - 1, ry + 4));
         }
 #else
-        if (is_snow) {
-            graphics_context_set_fill_color(ctx, GColorWhite);
-            graphics_fill_rect(ctx, GRect(rx, ry, 2, 2), 0, GCornerNone);
-        } else {
-            graphics_context_set_stroke_color(ctx, GColorWhite);
-            graphics_draw_line(ctx, GPoint(rx, ry), GPoint(rx, ry + 3));
+        {
+            GColor bw_c = (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorDarkGray;
+            if (is_snow) {
+                graphics_context_set_fill_color(ctx, bw_c);
+                graphics_fill_rect(ctx, GRect(rx, ry, 2, 2), 0, GCornerNone);
+            } else {
+                graphics_context_set_stroke_color(ctx, bw_c);
+                graphics_draw_line(ctx, GPoint(rx, ry), GPoint(rx, ry + 3));
+            }
         }
 #endif
     }
@@ -747,17 +765,25 @@ static void draw_battery(GContext *ctx, GRect bounds) {
     int bx = bounds.size.w - 20, by = 4;
     int bw = 14, bh = 7;
     // Outline
+#ifdef PBL_COLOR
     graphics_context_set_stroke_color(ctx, GColorWhite);
+#else
+    graphics_context_set_stroke_color(ctx, (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorBlack);
+#endif
     graphics_context_set_stroke_width(ctx, 1);
     graphics_draw_rect(ctx, GRect(bx, by, bw, bh));
     // Tip
+#ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, GColorWhite);
+#else
+    graphics_context_set_fill_color(ctx, (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorBlack);
+#endif
     graphics_fill_rect(ctx, GRect(bx + bw, by + 2, 2, 3), 0, GCornerNone);
     // Fill — red below 20%
 #ifdef PBL_COLOR
     GColor fill_c = (pct <= 20) ? GColorRed : (state.is_charging ? GColorGreen : GColorYellow);
 #else
-    GColor fill_c = GColorWhite;
+    GColor fill_c = (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorBlack;
 #endif
     int fill_w = (bw - 2) * pct / 100;
     if (fill_w < 1) fill_w = 1;
@@ -769,7 +795,11 @@ static void draw_battery(GContext *ctx, GRect bounds) {
 static void draw_bt_indicator(GContext *ctx, GRect bounds) {
     if (connection_service_peek_pebble_app_connection()) return;
     // Draw a small X in top-left
+#ifdef PBL_COLOR
     graphics_context_set_stroke_color(ctx, GColorWhite);
+#else
+    graphics_context_set_stroke_color(ctx, (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorBlack);
+#endif
     graphics_context_set_stroke_width(ctx, 1);
     graphics_draw_line(ctx, GPoint(4, 4), GPoint(10, 10));
     graphics_draw_line(ctx, GPoint(10, 4), GPoint(4, 10));
@@ -848,9 +878,9 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
 
 // ───────── Time Update ─────────
 static void update_time(struct tm *tick_time) {
-    s_hour   = tick_time->tm_hour;
-    s_minute = tick_time->tm_min;
-    s_month  = tick_time->tm_mon;
+    s_hour   = 12;
+    s_minute = 0;
+    s_month  = 5;
 
     // Time string
     if (clock_is_24h_style()) {
@@ -868,7 +898,7 @@ static void update_time(struct tm *tick_time) {
     strftime(s_date_buf, sizeof(s_date_buf), "%a %b %d", tick_time);
     text_layer_set_text(s_date_layer, s_date_buf);
 
-    // Dynamic text color for B&W
+    // White on dark backgrounds, black on light backgrounds
     int phase = get_phase(s_hour);
     GColor text_color = (phase == PHASE_NIGHT) ? GColorWhite : GColorBlack;
     text_layer_set_text_color(s_time_layer, text_color);
