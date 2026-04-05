@@ -43,6 +43,21 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 - Single line at the bottom: current temp with daily high/low and wind direction/speed
 - Example: 72 H:80 L:61 NW 12mph
 
+
+### Heart Rate Monitor *(Pebble 2 HR and Pebble Time 2 only)*
+- Displays live heart rate in beats per minute in the complication bar
+- Only appears on models with a built-in heart rate sensor (diorite HR variant and emery)
+- Runtime detection: the watchface checks at startup whether the sensor is available, so the same build works on both HR and non-HR variants of the Pebble 2
+- Rate shown with a pulsing ring animation around the sun/moon on color displays
+- Updates every minute alongside other health metrics
+
+### Flower Garden (Steps Counter)
+- A small garden of flowers grows along the bottom of the landscape
+- Each flower represents your daily step progress
+- Flowers sprout and grow taller as you accumulate steps throughout the day
+- On color displays: stems are green, petals shift from yellow to pink to red
+- Resets at midnight with the step counter
+
 ### Battery and Bluetooth Indicators
 - Battery icon top-right: turns red below 20%, green while charging
 - Disconnect indicator top-left: small X when phone connection is lost

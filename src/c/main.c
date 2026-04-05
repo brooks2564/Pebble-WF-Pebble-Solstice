@@ -21,6 +21,7 @@
 #define ANIM_TOTAL_FRAMES   20
 #define MAX_PARTICLES        16
 #define MAX_STARS            12
+#define MAX_FLOWERS          10
 #define WEATHER_REFRESH_MIN  30
 
 // Weather condition codes (mapped from Open-Meteo weather_code)
@@ -58,12 +59,23 @@ typedef struct {
     int8_t  brightness; // 0-3 for twinkle
 } Star;
 
+typedef struct {
+    int16_t x;
+    int16_t height;
+    bool    bloomed;
+} Flower;
+
 // ───────── State ─────────
 static Window    *s_window;
 static Layer     *s_canvas;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_temp_layer;
+static bool       s_has_hr = false;
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+static TextLayer *s_hr_layer;
+static char       s_hr_buf[12];
+#endif
 
 
 static char s_time_buf[8];
@@ -78,6 +90,12 @@ static int  s_wind_speed     = 0;
 static char s_wind_dir[4]    = "--";
 static int  s_weather_code   = WEATHER_UNKNOWN;
 static bool s_weather_valid  = false;
+
+static int    s_steps     = 0;
+static Flower s_flowers[MAX_FLOWERS];
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+static int    s_heart_rate = 0;
+#endif
 
 // Health
 
@@ -172,6 +190,15 @@ static GColor moon_color(void) { return GColorPastelYellow; }
 
 #endif
 
+#ifdef PBL_COLOR
+static GColor flower_stem_color(void) { return GColorMayGreen; }
+static GColor flower_petal_color(int idx) {
+    GColor options[] = { GColorRed, GColorYellow, GColorMagenta, GColorOrange,
+                         GColorCyan, GColorRoseVale, GColorVividViolet };
+    return options[idx % 7];
+}
+#endif
+
 // Compute lunar phase as 0-255 (0=new moon, 128=full moon, 255=just before new)
 static int compute_lunar_phase(void) {
     // Reference new moon: Jan 6, 2000 18:14 UTC (Unix timestamp 947182440)
@@ -246,8 +273,35 @@ static void init_particles(GRect bounds) {
 // ───────── Update Health Data ─────────
 static void update_health(void) {
 #if PBL_API_EXISTS(health_service_peek_current_value)
+    s_steps = (int)health_service_peek_current_value(HealthMetricStepCount);
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+    if (s_has_hr) {
+        HealthValue hr = health_service_peek_current_value(HealthMetricHeartRateBPM);
+        if (hr > 0) s_heart_rate = (int)hr;
+        snprintf(s_hr_buf, sizeof(s_hr_buf), "%d bpm", s_heart_rate > 0 ? s_heart_rate : 0);
+        if (s_hr_layer) text_layer_set_text(s_hr_layer, s_hr_buf);
+    }
+#endif
 #endif
 
+    // Step-driven flower growth (10,000 steps = full garden)
+    int step_pct = s_steps * 100 / 10000;
+    if (step_pct > 100) step_pct = 100;
+    int flowers_active = step_pct * MAX_FLOWERS / 100;
+    if (flowers_active < 1 && s_steps > 0) flowers_active = 1;
+    for (int i = 0; i < MAX_FLOWERS; i++) {
+        if (i < flowers_active) {
+            int target_h = 8 + (i * 3) % 12;
+            if (s_flowers[i].height < target_h) {
+                s_flowers[i].height += 2;
+                if (s_flowers[i].height > target_h) s_flowers[i].height = target_h;
+            }
+            s_flowers[i].bloomed = (s_flowers[i].height >= target_h);
+        } else {
+            s_flowers[i].height  = 0;
+            s_flowers[i].bloomed = false;
+        }
+    }
 }
 
 // ───────── Drawing Functions ─────────
@@ -371,6 +425,21 @@ static void draw_celestial(GContext *ctx, GRect bounds) {
     }
 #endif
 
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+    if (s_has_hr && s_heart_rate > 40) {
+        int pulse_phase = (s_frame_counter * 6 + s_heart_rate) % 20;
+        int pulse_r = body_r + 8 + pulse_phase / 4;
+#ifdef PBL_COLOR
+        GColor pulse_c = (s_heart_rate > 120) ? GColorRed :
+                         (s_heart_rate > 80)  ? GColorOrange : GColorMintGreen;
+        graphics_context_set_stroke_color(ctx, pulse_c);
+#else
+        graphics_context_set_stroke_color(ctx, GColorWhite);
+#endif
+        graphics_context_set_stroke_width(ctx, 1);
+        graphics_draw_circle(ctx, GPoint(body_x, body_y), pulse_r);
+    }
+#endif
 
 }
 
@@ -513,6 +582,50 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
 }
 
 // Terrain / ground
+static void init_flowers(GRect bounds) {
+    int garden_start = bounds.size.w / 6;
+    int garden_width = bounds.size.w * 2 / 3;
+    for (int i = 0; i < MAX_FLOWERS; i++) {
+        int seed = pseudo_rand(i * 3571);
+        s_flowers[i].x      = garden_start + ((seed >> 4) % garden_width);
+        s_flowers[i].height  = 0;
+        s_flowers[i].bloomed = false;
+    }
+}
+
+// Flower garden — grows with daily steps
+static void draw_flowers(GContext *ctx, GRect bounds) {
+    int ground_y = bounds.size.h * 60 / 100 + 3;
+    for (int i = 0; i < MAX_FLOWERS; i++) {
+        if (s_flowers[i].height <= 0) continue;
+        int fx = s_flowers[i].x;
+        int stem_base = ground_y + 2;
+        int stem_top  = stem_base - s_flowers[i].height;
+#ifdef PBL_COLOR
+        graphics_context_set_stroke_color(ctx, flower_stem_color());
+#else
+        graphics_context_set_stroke_color(ctx, GColorWhite);
+#endif
+        graphics_context_set_stroke_width(ctx, 1);
+        graphics_draw_line(ctx, GPoint(fx, stem_base), GPoint(fx + 1, stem_top));
+        if (s_flowers[i].bloomed) {
+#ifdef PBL_COLOR
+            graphics_context_set_fill_color(ctx, flower_petal_color(i));
+#else
+            graphics_context_set_fill_color(ctx, GColorWhite);
+#endif
+            int r = 2;
+            graphics_fill_circle(ctx, GPoint(fx + 1, stem_top), r);
+            graphics_fill_rect(ctx, GRect(fx - 1, stem_top - r - 1, 4, 2), 0, GCornerNone);
+            graphics_fill_rect(ctx, GRect(fx - 1, stem_top + r, 4, 2), 0, GCornerNone);
+#ifdef PBL_COLOR
+            graphics_context_set_fill_color(ctx, GColorYellow);
+            graphics_fill_rect(ctx, GRect(fx, stem_top - 1, 2, 2), 0, GCornerNone);
+#endif
+        }
+    }
+}
+
 static void draw_terrain(GContext *ctx, GRect bounds) {
     int sky_h = bounds.size.h * 60 / 100;
     int phase = get_phase(s_hour);
@@ -688,6 +801,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
     // 8. Terrain / ground
     draw_terrain(ctx, bounds);
+
+    // 9. Flowers (step-driven)
+    draw_flowers(ctx, bounds);
 
 
     // 10. Complication bar
@@ -872,8 +988,12 @@ static void window_load(Window *window) {
     text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
     layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
 
-    // Temperature: in complication bar, left side
-    int comp_text_y = compl_bar_y + 8;
+    // Temperature/wind bar and optional HR row
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+    s_has_hr = health_service_metric_accessible(HealthMetricHeartRateBPM,
+                   time_start_of_today(), time_start_of_today() + SECONDS_PER_DAY);
+#endif
+    int comp_text_y = s_has_hr ? compl_bar_y + 2 : compl_bar_y + 8;
     s_temp_layer = text_layer_create(GRect(0, comp_text_y, bounds.size.w, 14));
     text_layer_set_background_color(s_temp_layer, GColorClear);
     text_layer_set_text_color(s_temp_layer, GColorWhite);
@@ -881,6 +1001,21 @@ static void window_load(Window *window) {
     text_layer_set_text_alignment(s_temp_layer, GTextAlignmentCenter);
     text_layer_set_text(s_temp_layer, "--° H:-- L:-- -- --mph");
     layer_add_child(window_layer, text_layer_get_layer(s_temp_layer));
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+    if (s_has_hr) {
+        s_hr_layer = text_layer_create(GRect(0, comp_text_y + 15, bounds.size.w, 14));
+        text_layer_set_background_color(s_hr_layer, GColorClear);
+#ifdef PBL_COLOR
+        text_layer_set_text_color(s_hr_layer, GColorMelon);
+#else
+        text_layer_set_text_color(s_hr_layer, GColorWhite);
+#endif
+        text_layer_set_font(s_hr_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+        text_layer_set_text_alignment(s_hr_layer, GTextAlignmentCenter);
+        text_layer_set_text(s_hr_layer, "-- bpm");
+        layer_add_child(window_layer, text_layer_get_layer(s_hr_layer));
+    }
+#endif
 
 
 
@@ -888,6 +1023,7 @@ static void window_load(Window *window) {
     // ── Initialize scene ──
     init_stars(bounds);
     init_particles(bounds);
+    init_flowers(bounds);
     update_health();
 
     // Set initial time
@@ -901,6 +1037,9 @@ static void window_unload(Window *window) {
     text_layer_destroy(s_time_layer);
     text_layer_destroy(s_date_layer);
     text_layer_destroy(s_temp_layer);
+#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+    if (s_hr_layer) text_layer_destroy(s_hr_layer);
+#endif
 
 
     if (s_anim_timer) {
