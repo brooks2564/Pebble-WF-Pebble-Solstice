@@ -44,11 +44,10 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 - Example: 72 H:80 L:61 NW 12mph
 
 
-### Heart Rate Monitor *(Pebble 2 HR and Pebble Time 2 only)*
+### Heart Rate Monitor *(Pebble Time 2 only)*
 - Displays live heart rate in beats per minute in the complication bar
-- Only appears on models with a built-in heart rate sensor (diorite HR variant and emery)
-- Runtime detection: the watchface checks at startup whether the sensor is available, so the same build works on both HR and non-HR variants of the Pebble 2
-- Rate shown with a pulsing ring animation around the sun/moon on color displays
+- Only appears on the Pebble Time 2 (emery), which has a built-in heart rate sensor
+- Rate shown with a pulsing ring animation around the sun/moon
 - Updates every minute alongside other health metrics
 
 ### Flower Garden (Steps Counter)

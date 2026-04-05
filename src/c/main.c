@@ -72,7 +72,7 @@ static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_temp_layer;
 static bool       s_has_hr = false;
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+#if defined(PBL_PLATFORM_EMERY)
 static TextLayer *s_hr_layer;
 static char       s_hr_buf[12];
 #endif
@@ -93,7 +93,7 @@ static bool s_weather_valid  = false;
 
 static int    s_steps     = 0;
 static Flower s_flowers[MAX_FLOWERS];
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+#if defined(PBL_PLATFORM_EMERY)
 static int    s_heart_rate = 0;
 #endif
 
@@ -274,7 +274,7 @@ static void init_particles(GRect bounds) {
 static void update_health(void) {
 #if PBL_API_EXISTS(health_service_peek_current_value)
     s_steps = (int)health_service_peek_current_value(HealthMetricStepCount);
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+#if defined(PBL_PLATFORM_EMERY)
     if (s_has_hr) {
         HealthValue hr = health_service_peek_current_value(HealthMetricHeartRateBPM);
         if (hr > 0) s_heart_rate = (int)hr;
@@ -425,7 +425,7 @@ static void draw_celestial(GContext *ctx, GRect bounds) {
     }
 #endif
 
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+#if defined(PBL_PLATFORM_EMERY)
     if (s_has_hr && s_heart_rate > 40) {
         int pulse_phase = (s_frame_counter * 6 + s_heart_rate) % 20;
         int pulse_r = body_r + 8 + pulse_phase / 4;
@@ -989,9 +989,10 @@ static void window_load(Window *window) {
     layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
 
     // Temperature/wind bar and optional HR row
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
-    s_has_hr = health_service_metric_accessible(HealthMetricHeartRateBPM,
-                   time_start_of_today(), time_start_of_today() + SECONDS_PER_DAY);
+#if defined(PBL_PLATFORM_EMERY)
+    s_has_hr = (health_service_metric_accessible(HealthMetricHeartRateBPM,
+                   time_start_of_today(), time_start_of_today() + SECONDS_PER_DAY)
+                   == HealthServiceAccessibilityMaskAvailable);
 #endif
     int comp_text_y = s_has_hr ? compl_bar_y + 2 : compl_bar_y + 8;
     s_temp_layer = text_layer_create(GRect(0, comp_text_y, bounds.size.w, 14));
@@ -1001,7 +1002,7 @@ static void window_load(Window *window) {
     text_layer_set_text_alignment(s_temp_layer, GTextAlignmentCenter);
     text_layer_set_text(s_temp_layer, "--° H:-- L:-- -- --mph");
     layer_add_child(window_layer, text_layer_get_layer(s_temp_layer));
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+#if defined(PBL_PLATFORM_EMERY)
     if (s_has_hr) {
         s_hr_layer = text_layer_create(GRect(0, comp_text_y + 15, bounds.size.w, 14));
         text_layer_set_background_color(s_hr_layer, GColorClear);
@@ -1037,7 +1038,7 @@ static void window_unload(Window *window) {
     text_layer_destroy(s_time_layer);
     text_layer_destroy(s_date_layer);
     text_layer_destroy(s_temp_layer);
-#if defined(PBL_PLATFORM_DIORITE) || defined(PBL_PLATFORM_EMERY)
+#if defined(PBL_PLATFORM_EMERY)
     if (s_hr_layer) text_layer_destroy(s_hr_layer);
 #endif
 
