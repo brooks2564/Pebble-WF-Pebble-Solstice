@@ -74,13 +74,13 @@ static TextLayer *s_temp_layer;
 static bool       s_has_hr = false;
 #if defined(PBL_PLATFORM_EMERY)
 static TextLayer *s_hr_layer;
-static char       s_hr_buf[12];
+static char       s_hr_buf[16];
 #endif
 
 
 static char s_time_buf[8];
 static char s_date_buf[16];
-static char s_temp_buf[20];
+static char s_temp_buf[48];
 
 // Weather
 static int  s_temperature    = 0;
@@ -175,16 +175,6 @@ static GColor terrain_color(int phase) {
     }
 }
 
-static GColor mountain_color(int phase) {
-    switch (phase) {
-        case PHASE_DAWN:  return GColorDarkGray;
-        case PHASE_DAY:   return (s_weather_code == WEATHER_SNOW) ? GColorWhite : GColorImperialPurple;
-        case PHASE_DUSK:  return GColorBulgarianRose;
-        case PHASE_NIGHT: return GColorBlack;
-        default:          return GColorDarkGray;
-    }
-}
-
 static GColor sun_color(void) { return GColorChromeYellow; }
 static GColor moon_color(void) { return GColorPastelYellow; }
 
@@ -243,9 +233,10 @@ static void draw_moon_phase(GContext *ctx, int cx, int cy, int r, int phase_256,
 
 
 // ───────── Deterministic Pseudo-Random ─────────
-static int pseudo_rand(int seed) {
-    seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF;
-    return seed;
+static int pseudo_rand(int input) {
+    unsigned int seed = (unsigned int)input;
+    seed = (seed * 1103515245u + 12345u) & 0x7FFFFFFFu;
+    return (int)seed;
 }
 
 // ───────── Initialize Scene Elements ─────────
