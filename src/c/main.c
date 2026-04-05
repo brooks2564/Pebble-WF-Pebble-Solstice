@@ -1016,7 +1016,13 @@ static void window_load(Window *window) {
                    == HealthServiceAccessibilityMaskAvailable);
 #endif
     int comp_text_y = s_has_hr ? compl_bar_y + 2 : compl_bar_y + 8;
-    s_temp_layer = text_layer_create(GRect(0, comp_text_y, bounds.size.w, 14));
+#ifdef PBL_ROUND
+    // On round displays inset text to stay within the circular screen edge
+    int round_inset = bounds.size.w / 5;
+#else
+    int round_inset = 0;
+#endif
+    s_temp_layer = text_layer_create(GRect(round_inset, comp_text_y, bounds.size.w - 2 * round_inset, 14));
     text_layer_set_background_color(s_temp_layer, GColorClear);
     text_layer_set_text_color(s_temp_layer, GColorWhite);
     text_layer_set_font(s_temp_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
@@ -1025,7 +1031,7 @@ static void window_load(Window *window) {
     layer_add_child(window_layer, text_layer_get_layer(s_temp_layer));
 #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
     if (s_has_hr) {
-        s_hr_layer = text_layer_create(GRect(0, comp_text_y + 15, bounds.size.w, 14));
+        s_hr_layer = text_layer_create(GRect(round_inset, comp_text_y + 15, bounds.size.w - 2 * round_inset, 14));
         text_layer_set_background_color(s_hr_layer, GColorClear);
 #ifdef PBL_COLOR
         text_layer_set_text_color(s_hr_layer, GColorMelon);
