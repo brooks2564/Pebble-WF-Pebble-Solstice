@@ -44,9 +44,9 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 - Example: 72 H:80 L:61 NW 12mph
 
 
-### Heart Rate Monitor *(Pebble Time 2 only)*
+### Heart Rate Monitor *(Pebble Core Time 2 and Pebble Time 2 only)*
 - Displays live heart rate in beats per minute in the complication bar
-- Only appears on the Pebble Time 2 (emery), which has a built-in heart rate sensor
+- Only appears on Pebble Core Time 2 (flint) and Pebble Time 2 (emery), which have built-in heart rate sensors
 - Rate shown with a pulsing ring animation around the sun/moon
 - Updates every minute alongside other health metrics
 
@@ -63,13 +63,15 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 
 ## Platform Support
 
-| Platform | Model | Display |
-|----------|-------|---------|
-| emery | Pebble Time 2 | 200x228 color |
-| basalt | Pebble Time | 144x168 color |
-| chalk | Pebble Time Round | 180x180 color |
-| aplite | Pebble Classic | 144x168 B&W |
-| diorite | Pebble 2 | 144x168 B&W |
+| Platform | Model | Display | HR Sensor |
+|----------|-------|---------|-----------|
+| flint | Pebble Core Time 2 | 200x228 color | Yes |
+| gabbro | Pebble Round 2 | 260x260 color | No |
+| emery | Pebble Time 2 | 200x228 color | Yes |
+| basalt | Pebble Time | 144x168 color | No |
+| chalk | Pebble Time Round | 180x180 color | No |
+| aplite | Pebble Classic | 144x168 B&W | No |
+| diorite | Pebble 2 | 144x168 B&W | No |
 
 ## B&W Adaptations
 - Sky: solid white (day) or black (night)

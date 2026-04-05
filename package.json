@@ -17,7 +17,9 @@
       "basalt",
       "chalk",
       "aplite",
-      "diorite"
+      "diorite",
+      "flint",
+      "gabbro"
     ],
     "watchapp": {
       "watchface": true
