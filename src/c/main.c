@@ -869,9 +869,9 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
 
 // ───────── Time Update ─────────
 static void update_time(struct tm *tick_time) {
-    s_hour   = 12;
-    s_minute = 0;
-    s_month  = 5;
+    s_hour   = tick_time->tm_hour;
+    s_minute = tick_time->tm_min;
+    s_month  = tick_time->tm_mon;
 
     // Time string
     if (clock_is_24h_style()) {
