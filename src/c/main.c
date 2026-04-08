@@ -372,7 +372,11 @@ static void draw_stars(GContext *ctx, GRect bounds) {
 }
 
 // Celestial body (sun or moon) arcing across the sky
-static void draw_celestial(GContext *ctx, GRect bounds) {
+// foggy=true: draw dimmed/muted colors so it looks veiled behind fog
+static void draw_celestial(GContext *ctx, GRect bounds, bool foggy) {
+    // Hidden during storm and rain — clouds completely block the sky
+    if (s_weather_code == WEATHER_STORM || s_weather_code == WEATHER_RAIN) return;
+
     int phase = get_phase(s_hour);
     bool is_sun = (phase == PHASE_DAWN || phase == PHASE_DAY || phase == PHASE_DUSK);
 
@@ -409,23 +413,28 @@ static void draw_celestial(GContext *ctx, GRect bounds) {
     int body_r = is_sun ? 14 : 10;
 
 #ifdef PBL_COLOR
-    GColor body_c = is_sun ? sun_color() : moon_color();
-
-    // Glow effect: larger semi-transparent circle behind
-    if (is_sun) {
-        graphics_context_set_fill_color(ctx, GColorRajah);
-        graphics_fill_circle(ctx, GPoint(body_x, body_y), body_r + 6);
-        graphics_context_set_fill_color(ctx, GColorYellow);
-        graphics_fill_circle(ctx, GPoint(body_x, body_y), body_r + 3);
-    }
-
-    if (is_sun) {
-        graphics_context_set_fill_color(ctx, body_c);
+    if (foggy) {
+        // Dimmed/muted behind fog — no glow, washed-out colors
+        GColor fog_body = is_sun ? GColorYellow : GColorLightGray;
+        graphics_context_set_fill_color(ctx, fog_body);
         graphics_fill_circle(ctx, GPoint(body_x, body_y), body_r);
     } else {
-        int lp = compute_lunar_phase();
-        draw_moon_phase(ctx, body_x, body_y, body_r, lp,
-                        GColorPastelYellow, GColorOxfordBlue);
+        GColor body_c = is_sun ? sun_color() : moon_color();
+        // Glow effect
+        if (is_sun) {
+            graphics_context_set_fill_color(ctx, GColorRajah);
+            graphics_fill_circle(ctx, GPoint(body_x, body_y), body_r + 6);
+            graphics_context_set_fill_color(ctx, GColorYellow);
+            graphics_fill_circle(ctx, GPoint(body_x, body_y), body_r + 3);
+        }
+        if (is_sun) {
+            graphics_context_set_fill_color(ctx, body_c);
+            graphics_fill_circle(ctx, GPoint(body_x, body_y), body_r);
+        } else {
+            int lp = compute_lunar_phase();
+            draw_moon_phase(ctx, body_x, body_y, body_r, lp,
+                            GColorPastelYellow, GColorOxfordBlue);
+        }
     }
 #else
     // B&W: filled circle for sun, outline for moon
@@ -466,7 +475,9 @@ static void draw_clouds(GContext *ctx, GRect bounds) {
         return;
 
     int sky_h = bounds.size.h * 60 / 100;
-    int num_clouds = (s_weather_code == WEATHER_FOG) ? 6 : 3;
+    int num_clouds = (s_weather_code == WEATHER_STORM) ? 8 :
+                     (s_weather_code == WEATHER_RAIN)  ? 6 :
+                     (s_weather_code == WEATHER_FOG)   ? 6 : 3;
 
     for (int i = 0; i < num_clouds; i++) {
         int cx = (pseudo_rand(i * 4231 + 99) >> 4) % bounds.size.w;
@@ -858,11 +869,16 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     // 2. Stars (night/dusk only)
     draw_stars(ctx, bounds);
 
-    // 3. Clouds
-    draw_clouds(ctx, bounds);
-
-    // 4. Celestial body (sun/moon) with HR pulse
-    draw_celestial(ctx, bounds);
+    // 3+4. Clouds and celestial body
+    // Fog: celestial drawn first (dimmed), then fog clouds layer on top
+    // Others: clouds first, then celestial on top (or hidden for storm/rain)
+    if (s_weather_code == WEATHER_FOG) {
+        draw_celestial(ctx, bounds, true);
+        draw_clouds(ctx, bounds);
+    } else {
+        draw_clouds(ctx, bounds);
+        draw_celestial(ctx, bounds, false);
+    }
 
     // 5. Weather particles
     draw_particles(ctx, bounds);
