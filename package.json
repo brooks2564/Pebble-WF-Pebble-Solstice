@@ -1,6 +1,6 @@
 {
   "name": "solstice",
-  "author": "Brooks",
+  "author": "Brooman Inks",
   "version": "1.0.0",
   "keywords": [
     "pebble-app"
@@ -40,7 +40,14 @@
       "SUNSET_MINS": 9
     },
     "resources": {
-      "media": []
+      "media": [
+        {
+          "menuIcon": true,
+          "type": "png",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png"
+        }
+      ]
     }
   }
 }
