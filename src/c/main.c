@@ -311,16 +311,19 @@ static void draw_sky(GContext *ctx, GRect bounds) {
     GColor top = sky_top_color(phase);
     GColor bot = sky_bottom_color(phase);
 
-    // 8-band gradient
-    int bands = 8;
-    int band_h = sky_h / bands;
-    for (int b = 0; b < bands; b++) {
-        // Interpolate R/G/B components between top and bottom colors
-        // Using simple step interpolation for 64-color palette
-        GColor c = (b < bands / 2) ? top : bot;
-        graphics_context_set_fill_color(ctx, c);
-        GRect band_rect = GRect(0, b * band_h, bounds.size.w, band_h + 1);
-        graphics_fill_rect(ctx, band_rect, 0, GCornerNone);
+    if (phase == PHASE_DAWN || phase == PHASE_DUSK) {
+        // Gradient: 8 bands blending top → bottom color
+        int bands = 8;
+        int band_h = sky_h / bands;
+        for (int b = 0; b < bands; b++) {
+            GColor c = (b < bands / 2) ? top : bot;
+            graphics_context_set_fill_color(ctx, c);
+            graphics_fill_rect(ctx, GRect(0, b * band_h, bounds.size.w, band_h + 1), 0, GCornerNone);
+        }
+    } else {
+        // Solid color for day and night
+        graphics_context_set_fill_color(ctx, top);
+        graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, sky_h), 0, GCornerNone);
     }
 #else
     // B&W: dithered pattern based on phase
