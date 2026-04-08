@@ -70,13 +70,6 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 | basalt | Pebble Time | 144x168 color | Rectangular | ❌ |
 | chalk | Pebble Time Round | 180x180 color | Round | ❌ |
 
-## 🖤 B&W Adaptations
-- Sky: solid white (day) or black (night)
-- Sun: filled circle with outline
-- Moon: correct lunar phase in white/black
-- Mountains: gray/outlined for night visibility
-- Ground: dark gray at night
-
 ## ⚡ Battery Efficiency
 - Redraws once per minute
 - Particles computed deterministically, no continuous animation timer
