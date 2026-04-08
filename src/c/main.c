@@ -1034,8 +1034,14 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     if (ss_tuple)   s_sunset_mins  = (int)ss_tuple->value->int32;
 
     if (s_weather_valid) {
+#ifdef PBL_ROUND
+        // Round screen has limited width at the bottom — use shorter format
+        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° %s %dmph",
+                 s_temperature, s_wind_dir, s_wind_speed);
+#else
         snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° H:%d L:%d %s %dmph",
                  s_temperature, s_high_temp, s_low_temp, s_wind_dir, s_wind_speed);
+#endif
         text_layer_set_text(s_temp_layer, s_temp_buf);
     }
 
@@ -1119,8 +1125,10 @@ static void window_load(Window *window) {
 #endif
     int comp_text_y = s_has_hr ? compl_bar_y + 2 : compl_bar_y + 8;
 #ifdef PBL_ROUND
-    // On round displays inset text to stay within the circular screen edge
-    int round_inset = bounds.size.w / 5;
+    // On round displays inset text to stay within the circular screen edge.
+    // The compl bar sits near the bottom where the circle narrows significantly,
+    // so use a larger inset than the time/date layers above.
+    int round_inset = bounds.size.w * 23 / 100;
 #else
     int round_inset = 0;
 #endif
