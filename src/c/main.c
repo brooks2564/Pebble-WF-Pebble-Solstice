@@ -1072,10 +1072,19 @@ static void window_load(Window *window) {
     int compl_bar_y = bounds.size.h - (bounds.size.h * 18 / 100);
     int sky_h = bounds.size.h * 60 / 100;
 
+    // Round screen inset — keeps text away from the circular bezel edge
+#ifdef PBL_ROUND
+    int tx = bounds.size.w / 6;
+    int tw = bounds.size.w - 2 * tx;
+#else
+    int tx = 0;
+    int tw = bounds.size.w;
+#endif
+
     // Time: sits just at the sky/terrain boundary
     int time_h = 42;
     int time_y = sky_h - time_h + 8;
-    s_time_layer = text_layer_create(GRect(0, time_y, bounds.size.w, time_h + 6));
+    s_time_layer = text_layer_create(GRect(tx, time_y, tw, time_h + 6));
     text_layer_set_background_color(s_time_layer, GColorClear);
 #ifdef PBL_COLOR
     text_layer_set_text_color(s_time_layer, GColorWhite);
@@ -1089,7 +1098,7 @@ static void window_load(Window *window) {
 
     // Date: just below time
     int date_y = time_y + time_h + 1;
-    s_date_layer = text_layer_create(GRect(0, date_y, bounds.size.w, 22));
+    s_date_layer = text_layer_create(GRect(tx, date_y, tw, 22));
     text_layer_set_background_color(s_date_layer, GColorClear);
 #ifdef PBL_COLOR
     text_layer_set_text_color(s_date_layer, GColorWhite);
