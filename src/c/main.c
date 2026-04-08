@@ -88,7 +88,7 @@ static int  s_high_temp      = 0;
 static int  s_low_temp       = 0;
 static int  s_wind_speed     = 0;
 static char s_wind_dir[4]    = "--";
-static int  s_weather_code   = WEATHER_SNOW;  // TEST OVERRIDE: snow
+static int  s_weather_code   = WEATHER_STORM; // TEST OVERRIDE: storm
 static bool s_weather_valid  = false;
 
 static int    s_steps     = 0;
@@ -108,6 +108,11 @@ static bool      s_animating   = false;
 // Shooting star on tap
 static bool  s_shooting_star_active = false;
 static int   s_star_frame = 0;
+
+// Lightning flash on tap (storm only)
+static bool  s_lightning_flash = false;
+static int   s_flash_frame = 0;
+#define FLASH_TOTAL_FRAMES 6
 
 // Scene elements
 static Particle s_particles[MAX_PARTICLES];
@@ -146,7 +151,9 @@ static int get_season(void) {
 static GColor sky_top_color(int phase) {
     switch (phase) {
         case PHASE_DAWN:  return GColorMelon;
-        case PHASE_DAY:   return (s_weather_code == WEATHER_RAIN || s_weather_code == WEATHER_STORM)
+        case PHASE_DAY:   return (s_weather_code == WEATHER_STORM)
+                                  ? GColorBlack
+                                  : (s_weather_code == WEATHER_RAIN)
                                   ? GColorDarkGray
                                   : (s_weather_code == WEATHER_SNOW)
                                   ? GColorDarkGray
@@ -707,6 +714,40 @@ static void draw_particles(GContext *ctx, GRect bounds) {
     }
 }
 
+// Static lightning bolt (always visible during storms)
+static void draw_lightning_bolt(GContext *ctx, GRect bounds) {
+    if (s_weather_code != WEATHER_STORM) return;
+    int sky_h = bounds.size.h * 60 / 100;
+    // Jagged bolt: upper-right quadrant of sky
+    int bx = bounds.size.w * 2 / 3;
+    int by = sky_h / 5;
+#ifdef PBL_COLOR
+    graphics_context_set_stroke_color(ctx, GColorYellow);
+#else
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+#endif
+    graphics_context_set_stroke_width(ctx, 2);
+    graphics_draw_line(ctx, GPoint(bx,      by),      GPoint(bx - 7,  by + 13));
+    graphics_draw_line(ctx, GPoint(bx - 7,  by + 13), GPoint(bx + 2,  by + 13));
+    graphics_draw_line(ctx, GPoint(bx + 2,  by + 13), GPoint(bx - 8,  by + 28));
+    graphics_context_set_stroke_width(ctx, 1);
+}
+
+// Lightning flash (full-sky white burst, tap-triggered during storm)
+static void draw_lightning_flash(GContext *ctx, GRect bounds) {
+    if (!s_lightning_flash) return;
+    int sky_h = bounds.size.h * 60 / 100;
+    // Fade out: bright white early frames, transparent later
+    if (s_flash_frame < 2) {
+        graphics_context_set_fill_color(ctx, GColorWhite);
+    } else if (s_flash_frame < 4) {
+        graphics_context_set_fill_color(ctx, GColorLightGray);
+    } else {
+        return; // done flashing
+    }
+    graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, sky_h), 0, GCornerNone);
+}
+
 // Shooting star animation (triggered by tap)
 static void draw_shooting_star(GContext *ctx, GRect bounds) {
     if (!s_shooting_star_active) return;
@@ -827,6 +868,12 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     // 6. Shooting star
     draw_shooting_star(ctx, bounds);
 
+    // 6b. Lightning bolt (static, storm only)
+    draw_lightning_bolt(ctx, bounds);
+
+    // 6c. Lightning flash (tap-triggered, storm only)
+    draw_lightning_flash(ctx, bounds);
+
     // 7. Mountains
     draw_mountains(ctx, bounds);
 
@@ -862,17 +909,33 @@ static void anim_timer_callback(void *data) {
         }
     }
 
+    if (s_lightning_flash) {
+        s_flash_frame++;
+        if (s_flash_frame >= FLASH_TOTAL_FRAMES) {
+            s_lightning_flash = false;
+            s_flash_frame = 0;
+            s_animating = false;
+            layer_mark_dirty(s_canvas);
+        }
+    }
+
     if (s_animating) {
         layer_mark_dirty(s_canvas);
         s_anim_timer = app_timer_register(ANIM_DURATION_MS, anim_timer_callback, NULL);
     }
 }
 
-// ───────── Tap Handler (shooting star!) ─────────
+// ───────── Tap Handler ─────────
+// Storm: lightning flash. Otherwise: shooting star.
 static void tap_handler(AccelAxisType axis, int32_t direction) {
     if (s_animating) return;
-    s_shooting_star_active = true;
-    s_star_frame = 0;
+    if (s_weather_code == WEATHER_STORM) {
+        s_lightning_flash = true;
+        s_flash_frame = 0;
+    } else {
+        s_shooting_star_active = true;
+        s_star_frame = 0;
+    }
     s_animating = true;
     s_anim_timer = app_timer_register(ANIM_DURATION_MS, anim_timer_callback, NULL);
 }
@@ -968,7 +1031,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         else if (strcmp(c, "T-Storm") == 0)     s_weather_code = WEATHER_STORM;
         else                                    s_weather_code = WEATHER_CLOUDY;
     }
-    s_weather_code = WEATHER_SNOW;  // TEST OVERRIDE: force snow
+    s_weather_code = WEATHER_STORM; // TEST OVERRIDE: force storm
 
     layer_mark_dirty(s_canvas);
 }
