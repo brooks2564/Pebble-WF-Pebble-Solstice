@@ -1,6 +1,6 @@
 # 🌅 Solstice - A Living Landscape Watchface
 
-Solstice transforms your Pebble into a window onto a living world. The sky shifts through dawn, day, dusk, and night using your actual local sunrise and sunset times. A sun or moon arcs across the sky on an accurate astronomical path. Live weather drives the atmosphere - clouds drift, rain falls, snow settles. The landscape changes with the real season. Shake your wrist to trigger a shooting star.
+Solstice transforms your Pebble into a window onto a living world. The sky shifts through dawn, day, dusk, and night using your actual local sunrise and sunset times. A sun or moon arcs across the sky on an accurate astronomical path. Live weather drives the atmosphere - clouds drift, rain falls, snow settles, lightning flashes. The landscape changes with the real season. **Shake your wrist to trigger a shooting star — or a lightning strike during a storm.**
 
 ## ✨ Features
 
@@ -35,17 +35,18 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 - On B&W at night: back range in light gray, front range with white outline for depth
 - Ground is dark gray at night to distinguish from the black sky
 
-### 🌠 Shooting Star
-- Shake your wrist to trigger a shooting star across the sky
+### 🌠 Shooting Star & ⚡ Lightning Flash
+- **Shake your wrist** to trigger a shooting star streaking across the night sky
+- During a **thunderstorm**, the same wrist shake triggers a lightning bolt flash instead
 - Brief animation preserves battery
 
 ### 🌡️ Weather Bar
 - Single line at the bottom: current temp with daily high/low and wind direction/speed
 - Example: 72° H:80 L:61 NW 12mph
 
-### ❤️ Heart Rate Monitor *(Pebble Core Time 2 and Pebble Time 2 only)*
+### ❤️ Heart Rate Monitor *(Pebble Time 2 / emery only)*
 - Displays live heart rate in beats per minute in the complication bar
-- Only appears on Pebble Core Time 2 (flint) and Pebble Time 2 (emery), which have built-in heart rate sensors
+- Only appears on **Pebble Time 2 (emery)**, which has a built-in heart rate sensor — not available on Pebble Round 2 (gabbro)
 - Rate shown with a pulsing ring animation around the sun/moon
 - Updates every minute alongside other health metrics
 
@@ -64,13 +65,8 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 
 | Platform | Model | Display | HR Sensor |
 |----------|-------|---------|-----------|
-| flint | Pebble Core Time 2 | 200x228 color | ✅ |
-| gabbro | Pebble Round 2 | 260x260 color | ❌ |
+| gabbro | Pebble Round 2 | 180x180 color | ❌ |
 | emery | Pebble Time 2 | 200x228 color | ✅ |
-| basalt | Pebble Time | 144x168 color | ❌ |
-| chalk | Pebble Time Round | 180x180 color | ❌ |
-| aplite | Pebble Classic | 144x168 B&W | ❌ |
-| diorite | Pebble 2 | 144x168 B&W | ❌ |
 
 ## 🖤 B&W Adaptations
 - Sky: solid white (day) or black (night)
@@ -86,6 +82,22 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 
 ## 🔧 Build and Install
 
+### CloudPebble (no local toolchain needed)
+Open in the community-hosted CloudPebble IDE:
+```
+https://cloudpebble.repebble.com/ide/import/github/brooks2564/Pebble-WF-Pebble-Solstice
+```
+
+### Local build
+```bash
+pebble build
+cp build/Pebble-WF-Pebble-Solstice.pbw Pebble-WF-Pebble-Solstice.pbw
+pebble install --phone <your-phone-ip>
+git add -f Pebble-WF-Pebble-Solstice.pbw
+git commit -m "Update PBW"
+git push
+```
+> Note: `.gitignore` excludes `*.pbw` — use `git add -f` to force-add the compiled binary.
 
 ## 🙏 Credits
 - 🌤️ Weather: Open-Meteo API (free, open-source) - https://open-meteo.com
