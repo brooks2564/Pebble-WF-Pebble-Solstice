@@ -31,8 +31,9 @@ I'm new to making watchfaces and am having so much fun! Solstice transforms your
 - Two mountain ranges at different depths for a layered silhouette effect
 - Colors shift with time of day and season
 
-### 🌠 Shooting Star
+### 🌠 Shooting Star & ⚡ Lightning Flash
 - Shake your wrist to trigger a shooting star across the sky
+- During a **thunderstorm**, the same wrist shake triggers a lightning bolt flash instead
 - Brief animation preserves battery
 
 ### 🌡️ Weather Bar
