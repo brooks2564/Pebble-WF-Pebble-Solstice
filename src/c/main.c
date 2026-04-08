@@ -962,6 +962,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         else if (strcmp(c, "T-Storm") == 0)     s_weather_code = WEATHER_STORM;
         else                                    s_weather_code = WEATHER_CLOUDY;
     }
+    s_weather_code = WEATHER_SNOW;  // TEST OVERRIDE: force snow
 
     layer_mark_dirty(s_canvas);
 }
