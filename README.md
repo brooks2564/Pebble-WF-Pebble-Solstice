@@ -1,19 +1,18 @@
 # 🌅 Solstice - A Living Landscape Watchface
 
-I'm new to making watchfaces and am having so much fun! Solstice transforms your Pebble into a window onto a living world. The sky shifts through dawn, day, dusk, and night using your actual local sunrise and sunset times. A sun or moon arcs across the sky on an accurate astronomical path. Live weather drives the atmosphere - clouds drift, rain falls, snow settles, lightning flashes. The landscape changes with the real season. **Shake your wrist to trigger a shooting star — or a lightning strike during a storm.**
+I'm new to making watchfaces and am having so much fun! Solstice transforms your Pebble into a window onto a living world. The sky shifts through dawn, day, dusk, and night using your actual local sunrise and sunset times. A sun or moon arcs across the sky on an accurate astronomical path. Live weather drives the atmosphere - clouds drift, rain falls, snow settles. The landscape changes with the real season. Shake your wrist to trigger a shooting star.
 
 ## ✨ Features
 
 ### 🌤️ Dynamic Sky System
 - 4 phases: Night (deep blue), Dawn (peach/gold), Day (cerulean), Dusk (orange/sunset)
 - Real sunrise/sunset times fetched from Open-Meteo - sky phases and celestial arc are astronomically accurate, not hardcoded
-- 8-band gradient sky on color models; solid black/white on B&W
 - ⭐ Stars visible at night and dusk
 
 ### ☀️ Celestial Tracking
 - Sun and Moon arc across the sky based on your actual local sunrise/sunset times
 - 🌙 Real lunar phases: Moon renders the correct phase (new, crescent, quarter, gibbous, full) calculated from the actual synodic cycle using a 2-circle rendering technique
-- Sun has a warm glow halo on color displays
+- Sun has a warm glow halo
 - Position updates every minute
 
 ### 🌦️ Live Weather
@@ -27,26 +26,22 @@ I'm new to making watchfaces and am having so much fun! Solstice transforms your
   - ☀️ Summer: Deep vibrant greens
   - 🍁 Fall: Orange and tan tones
   - ❄️ Winter: Gray mountains with snow caps on the peaks
-- B&W models show white snow caps on peaks in winter
 
 ### ⛰️ Parallax Mountains
 - Two mountain ranges at different depths for a layered silhouette effect
 - Colors shift with time of day and season
-- On B&W at night: back range in light gray, front range with white outline for depth
-- Ground is dark gray at night to distinguish from the black sky
 
-### 🌠 Shooting Star & ⚡ Lightning Flash
-- **Shake your wrist** to trigger a shooting star streaking across the night sky
-- During a **thunderstorm**, the same wrist shake triggers a lightning bolt flash instead
+### 🌠 Shooting Star
+- Shake your wrist to trigger a shooting star across the sky
 - Brief animation preserves battery
 
 ### 🌡️ Weather Bar
 - Single line at the bottom: current temp with daily high/low and wind direction/speed
 - Example: 72° H:80 L:61 NW 12mph
 
-### ❤️ Heart Rate Monitor *(Pebble Time 2 / emery only)*
+### ❤️ Heart Rate Monitor *(Pebble Core Time 2 and Pebble Time 2 only)*
 - Displays live heart rate in beats per minute in the complication bar
-- Only appears on **Pebble Time 2 (emery)**, which has a built-in heart rate sensor — not available on Pebble Round 2 (gabbro)
+- Only appears on Pebble Core Time 2 (flint) and Pebble Time 2 (emery), which have built-in heart rate sensors
 - Rate shown with a pulsing ring animation around the sun/moon
 - Updates every minute alongside other health metrics
 
@@ -54,12 +49,14 @@ I'm new to making watchfaces and am having so much fun! Solstice transforms your
 - A small garden of flowers grows along the bottom of the landscape
 - Each flower represents your daily step progress
 - Flowers sprout and grow taller as you accumulate steps throughout the day
-- On color displays: stems are green, petals shift from yellow to pink to red
+- Stems are green, petals shift from yellow to pink to red
 - Resets at midnight with the step counter
 
 ### 🔋 Battery and Bluetooth Indicators
 - 🔋 Battery icon top-right: turns red below 20%, green while charging
 - 📵 Disconnect indicator top-left: small X when phone connection is lost
+
+Please feel free to email me at broomaninks@gmail.com to let me know of any bugs or suggestions. Thank you for trying out Solstice and enjoy!
 
 ## 📱 Platform Support
 
