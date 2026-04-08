@@ -149,7 +149,9 @@ static GColor sky_top_color(int phase) {
         case PHASE_DAY:   return (s_weather_code == WEATHER_RAIN || s_weather_code == WEATHER_STORM)
                                   ? GColorDarkGray
                                   : (s_weather_code == WEATHER_SNOW)
-                                  ? GColorDarkGray : GColorVividCerulean;
+                                  ? GColorDarkGray
+                                  : (s_weather_code == WEATHER_FOG)
+                                  ? GColorLightGray : GColorVividCerulean;
         case PHASE_DUSK:  return GColorOrange;
         case PHASE_NIGHT: return GColorOxfordBlue;
         default:          return GColorBlack;
@@ -311,7 +313,7 @@ static void draw_sky(GContext *ctx, GRect bounds) {
     GColor top = sky_top_color(phase);
     GColor bot = sky_bottom_color(phase);
 
-    if (phase == PHASE_DAWN || phase == PHASE_DUSK) {
+    if ((phase == PHASE_DAWN || phase == PHASE_DUSK) && s_weather_code != WEATHER_FOG) {
         // Gradient: 8 bands blending top → bottom color
         int bands = 8;
         int band_h = sky_h / bands;
