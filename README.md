@@ -1,6 +1,6 @@
 # 🌅 Solstice - A Living Landscape Watchface
 
-I'm new to making watchfaces and am having so much fun! Solstice transforms your Pebble into a window onto a living world. The sky shifts through dawn, day, dusk, and night using your actual local sunrise and sunset times. A sun or moon arcs across the sky on an accurate astronomical path. Live weather drives the atmosphere - clouds drift, rain falls, snow settles. The landscape changes with the real season. Shake your wrist to trigger a shooting star.
+I'm new to making watchfaces and am having so much fun! Solstice transforms your Pebble into a window onto a living world. The sky shifts through dawn, day, dusk, and night using your actual local sunrise and sunset times. A sun or moon arcs across the sky on an accurate astronomical path. Live weather drives the atmosphere - clouds drift, rain falls, snow settles. The landscape changes with the real season. Shake your wrist to trigger a shooting star or a lightning bolt!
 
 ## ✨ Features
 
