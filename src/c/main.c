@@ -531,7 +531,7 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
         gpath_draw_filled(ctx, p);
         // Winter snow caps
         if (season == SEASON_WINTER) {
-            int cap_h = peak_h / 3;
+            int cap_h = peak_h / 5;
             GPoint cap[3] = {
                 GPoint(px - cap_h, base_y - peak_h + cap_h),
                 GPoint(px, base_y - peak_h),
@@ -554,7 +554,7 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
             gpath_draw_filled(ctx, p);
             // Winter snow caps on B&W (day only)
             if (season == SEASON_WINTER) {
-                int cap_h = peak_h / 3;
+                int cap_h = peak_h / 5;
                 GPoint cap[3] = {
                     GPoint(px - cap_h, base_y - peak_h + cap_h),
                     GPoint(px, base_y - peak_h),
@@ -1056,7 +1056,7 @@ static void window_load(Window *window) {
 
     // Time: lower in the sky, closer to the horizon
     int time_h = 42;
-    int time_y = sky_h - time_h - 6;
+    int time_y = sky_h - time_h - 2;
     s_time_layer = text_layer_create(GRect(0, time_y, bounds.size.w, time_h + 6));
     text_layer_set_background_color(s_time_layer, GColorClear);
 #ifdef PBL_COLOR
@@ -1070,7 +1070,7 @@ static void window_load(Window *window) {
     layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
 
     // Date: just below time
-    int date_y = time_y + time_h + 2;
+    int date_y = time_y + time_h + 6;
     s_date_layer = text_layer_create(GRect(0, date_y, bounds.size.w, 22));
     text_layer_set_background_color(s_date_layer, GColorClear);
 #ifdef PBL_COLOR
