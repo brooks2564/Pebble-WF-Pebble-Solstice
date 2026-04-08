@@ -67,6 +67,8 @@ Solstice transforms your Pebble into a window onto a living world. The sky shift
 |----------|-------|---------|-----------|
 | gabbro | Pebble Round 2 | 180x180 color | ❌ |
 | emery | Pebble Time 2 | 200x228 color | ✅ |
+| basalt | Pebble Time | 144x168 color | ❌ |
+| chalk | Pebble Time Round | 180x180 color | ❌ |
 
 ## 🖤 B&W Adaptations
 - Sky: solid white (day) or black (night)
