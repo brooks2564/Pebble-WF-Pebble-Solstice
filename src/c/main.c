@@ -88,7 +88,7 @@ static int  s_high_temp      = 0;
 static int  s_low_temp       = 0;
 static int  s_wind_speed     = 0;
 static char s_wind_dir[4]    = "--";
-static int  s_weather_code   = WEATHER_CLEAR; // TEST OVERRIDE: clear
+static int  s_weather_code   = WEATHER_CLEAR;
 static bool s_weather_valid  = false;
 
 static int    s_steps     = 0;
@@ -278,7 +278,8 @@ static void init_particles(GRect bounds) {
 // ───────── Update Health Data ─────────
 static void update_health(void) {
 #if PBL_API_EXISTS(health_service_peek_current_value)
-    s_steps = 9000;  // TEST OVERRIDE: 9000 steps
+    HealthValue steps = health_service_peek_current_value(HealthMetricStepCount);
+    if (steps > 0) s_steps = (int)steps;
 #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
     if (s_has_hr) {
         HealthValue hr = health_service_peek_current_value(HealthMetricHeartRateBPM);
@@ -960,9 +961,9 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
 
 // ───────── Time Update ─────────
 static void update_time(struct tm *tick_time) {
-    s_hour   = 12;   // TEST OVERRIDE: noon (daytime)
+    s_hour   = tick_time->tm_hour;
     s_minute = tick_time->tm_min;
-    s_month  = 7;    // TEST OVERRIDE: August (summer)
+    s_month  = tick_time->tm_mon;
 
     // Time string
     if (clock_is_24h_style()) {
@@ -1049,7 +1050,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         else if (strcmp(c, "T-Storm") == 0)     s_weather_code = WEATHER_STORM;
         else                                    s_weather_code = WEATHER_CLOUDY;
     }
-    s_weather_code = WEATHER_CLEAR; // TEST OVERRIDE: force clear
+    s_weather_code = WEATHER_CLEAR;
 
     layer_mark_dirty(s_canvas);
 }
