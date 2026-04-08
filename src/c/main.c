@@ -149,7 +149,7 @@ static GColor sky_top_color(int phase) {
         case PHASE_DAY:   return (s_weather_code == WEATHER_RAIN || s_weather_code == WEATHER_STORM)
                                   ? GColorDarkGray
                                   : (s_weather_code == WEATHER_SNOW)
-                                  ? GColorLightGray : GColorVividCerulean;
+                                  ? GColorDarkGray : GColorVividCerulean;
         case PHASE_DUSK:  return GColorOrange;
         case PHASE_NIGHT: return GColorOxfordBlue;
         default:          return GColorBlack;
@@ -162,7 +162,7 @@ static GColor sky_bottom_color(int phase) {
         case PHASE_DAY:   return (s_weather_code == WEATHER_RAIN || s_weather_code == WEATHER_STORM)
                                   ? GColorLightGray
                                   : (s_weather_code == WEATHER_SNOW)
-                                  ? GColorWhite : GColorCeleste;
+                                  ? GColorDarkGray : GColorCeleste;
         case PHASE_DUSK:  return GColorSunsetOrange;
         case PHASE_NIGHT: return GColorOxfordBlue;
         default:          return GColorBlack;
@@ -170,6 +170,7 @@ static GColor sky_bottom_color(int phase) {
 }
 
 static GColor terrain_color(int phase) {
+    if (s_weather_code == WEATHER_SNOW) return GColorLightGray;
     switch (phase) {
         case PHASE_DAWN:  return GColorArmyGreen;
         case PHASE_DAY:   return GColorIslamicGreen;
