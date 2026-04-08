@@ -147,7 +147,9 @@ static GColor sky_top_color(int phase) {
     switch (phase) {
         case PHASE_DAWN:  return GColorMelon;
         case PHASE_DAY:   return (s_weather_code == WEATHER_RAIN || s_weather_code == WEATHER_STORM)
-                                  ? GColorDarkGray : GColorVividCerulean;
+                                  ? GColorDarkGray
+                                  : (s_weather_code == WEATHER_SNOW)
+                                  ? GColorLightGray : GColorVividCerulean;
         case PHASE_DUSK:  return GColorOrange;
         case PHASE_NIGHT: return GColorOxfordBlue;
         default:          return GColorBlack;
@@ -158,7 +160,9 @@ static GColor sky_bottom_color(int phase) {
     switch (phase) {
         case PHASE_DAWN:  return GColorRajah;
         case PHASE_DAY:   return (s_weather_code == WEATHER_RAIN || s_weather_code == WEATHER_STORM)
-                                  ? GColorLightGray : GColorCeleste;
+                                  ? GColorLightGray
+                                  : (s_weather_code == WEATHER_SNOW)
+                                  ? GColorWhite : GColorCeleste;
         case PHASE_DUSK:  return GColorSunsetOrange;
         case PHASE_NIGHT: return GColorOxfordBlue;
         default:          return GColorBlack;
