@@ -518,7 +518,7 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
     int num_back = 5;
     for (int i = 0; i < num_back; i++) {
         int px = bounds.size.w * i / (num_back - 1);
-        int peak_h = 20 + pseudo_rand(i * 1913) % 25;
+        int peak_h = 30 + pseudo_rand(i * 1913) % 25;
         GPoint tri[3] = {
             GPoint(px - 25, base_y),
             GPoint(px, base_y - peak_h),
@@ -575,7 +575,7 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
     int num_front = 4;
     for (int i = 0; i < num_front; i++) {
         int px = bounds.size.w * (2 * i + 1) / (2 * num_front);
-        int peak_h = 12 + pseudo_rand(i * 2741 + 100) % 15;
+        int peak_h = 20 + pseudo_rand(i * 2741 + 100) % 15;
         GPoint tri[3] = {
             GPoint(px - 20, base_y),
             GPoint(px, base_y - peak_h),
@@ -618,7 +618,7 @@ static void init_flowers(GRect bounds) {
 
 // Flower garden — grows with daily steps
 static void draw_flowers(GContext *ctx, GRect bounds) {
-    int ground_y = bounds.size.h * 60 / 100 + 3;
+    int ground_y = bounds.size.h * 60 / 100 + 8;
     for (int i = 0; i < MAX_FLOWERS; i++) {
         if (s_flowers[i].height <= 0) continue;
         int fx = s_flowers[i].x;
@@ -1054,9 +1054,9 @@ static void window_load(Window *window) {
     int compl_bar_y = bounds.size.h - (bounds.size.h * 18 / 100);
     int sky_h = bounds.size.h * 60 / 100;
 
-    // Time: in lower portion of sky, below the moon arc path
+    // Time: lower in the sky, closer to the horizon
     int time_h = 42;
-    int time_y = sky_h * 2 / 3 - time_h / 2;
+    int time_y = sky_h - time_h - 6;
     s_time_layer = text_layer_create(GRect(0, time_y, bounds.size.w, time_h + 6));
     text_layer_set_background_color(s_time_layer, GColorClear);
 #ifdef PBL_COLOR
