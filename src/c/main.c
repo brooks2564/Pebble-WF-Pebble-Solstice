@@ -88,7 +88,7 @@ static int  s_high_temp      = 0;
 static int  s_low_temp       = 0;
 static int  s_wind_speed     = 0;
 static char s_wind_dir[4]    = "--";
-static int  s_weather_code   = WEATHER_STORM; // TEST OVERRIDE: storm
+static int  s_weather_code   = WEATHER_CLEAR; // TEST OVERRIDE: clear
 static bool s_weather_valid  = false;
 
 static int    s_steps     = 0;
@@ -962,7 +962,7 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
 static void update_time(struct tm *tick_time) {
     s_hour   = 12;   // TEST OVERRIDE: noon (daytime)
     s_minute = tick_time->tm_min;
-    s_month  = 11;   // TEST OVERRIDE: December (winter)
+    s_month  = 7;    // TEST OVERRIDE: August (summer)
 
     // Time string
     if (clock_is_24h_style()) {
@@ -1049,7 +1049,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         else if (strcmp(c, "T-Storm") == 0)     s_weather_code = WEATHER_STORM;
         else                                    s_weather_code = WEATHER_CLOUDY;
     }
-    s_weather_code = WEATHER_STORM; // TEST OVERRIDE: force storm
+    s_weather_code = WEATHER_CLEAR; // TEST OVERRIDE: force clear
 
     layer_mark_dirty(s_canvas);
 }
