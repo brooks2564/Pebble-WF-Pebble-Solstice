@@ -529,13 +529,14 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
 #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, back_c);
         gpath_draw_filled(ctx, p);
-        // Winter snow caps
+        // Winter snow caps — width matches mountain slope (half-base=25)
         if (season == SEASON_WINTER) {
             int cap_h = peak_h / 5;
+            int cap_w = 25 * cap_h / peak_h;
             GPoint cap[3] = {
-                GPoint(px - cap_h, base_y - peak_h + cap_h),
+                GPoint(px - cap_w, base_y - peak_h + cap_h),
                 GPoint(px, base_y - peak_h),
-                GPoint(px + cap_h, base_y - peak_h + cap_h)
+                GPoint(px + cap_w, base_y - peak_h + cap_h)
             };
             GPathInfo ci = { .num_points = 3, .points = cap };
             GPath *cp = gpath_create(&ci);
@@ -552,13 +553,14 @@ static void draw_mountains(GContext *ctx, GRect bounds) {
             // Day/dawn/dusk: dark gray so front range has more contrast
             graphics_context_set_fill_color(ctx, GColorDarkGray);
             gpath_draw_filled(ctx, p);
-            // Winter snow caps on B&W (day only)
+            // Winter snow caps on B&W — width matches slope
             if (season == SEASON_WINTER) {
                 int cap_h = peak_h / 5;
+                int cap_w = 25 * cap_h / peak_h;
                 GPoint cap[3] = {
-                    GPoint(px - cap_h, base_y - peak_h + cap_h),
+                    GPoint(px - cap_w, base_y - peak_h + cap_h),
                     GPoint(px, base_y - peak_h),
-                    GPoint(px + cap_h, base_y - peak_h + cap_h)
+                    GPoint(px + cap_w, base_y - peak_h + cap_h)
                 };
                 GPathInfo ci = { .num_points = 3, .points = cap };
                 GPath *cp = gpath_create(&ci);
@@ -618,7 +620,7 @@ static void init_flowers(GRect bounds) {
 
 // Flower garden — grows with daily steps
 static void draw_flowers(GContext *ctx, GRect bounds) {
-    int ground_y = bounds.size.h * 60 / 100 + 8;
+    int ground_y = bounds.size.h - (bounds.size.h * 18 / 100) - 4;
     for (int i = 0; i < MAX_FLOWERS; i++) {
         if (s_flowers[i].height <= 0) continue;
         int fx = s_flowers[i].x;
@@ -1054,9 +1056,9 @@ static void window_load(Window *window) {
     int compl_bar_y = bounds.size.h - (bounds.size.h * 18 / 100);
     int sky_h = bounds.size.h * 60 / 100;
 
-    // Time: lower in the sky, closer to the horizon
+    // Time: sits just at the sky/terrain boundary
     int time_h = 42;
-    int time_y = sky_h - time_h - 2;
+    int time_y = sky_h - time_h + 8;
     s_time_layer = text_layer_create(GRect(0, time_y, bounds.size.w, time_h + 6));
     text_layer_set_background_color(s_time_layer, GColorClear);
 #ifdef PBL_COLOR
@@ -1070,7 +1072,7 @@ static void window_load(Window *window) {
     layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
 
     // Date: just below time
-    int date_y = time_y + time_h + 6;
+    int date_y = time_y + time_h + 1;
     s_date_layer = text_layer_create(GRect(0, date_y, bounds.size.w, 22));
     text_layer_set_background_color(s_date_layer, GColorClear);
 #ifdef PBL_COLOR
