@@ -30,7 +30,7 @@ function getWeather() {
                 'latitude=' + lat +
                 '&longitude=' + lon +
                 '&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m' +
-                '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset' +
+                '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,moonrise,moonset' +
                 '&temperature_unit=fahrenheit' +
                 '&wind_speed_unit=mph' +
                 '&forecast_days=1' +
@@ -50,6 +50,7 @@ function getWeather() {
                         var condition = weatherCodeToCondition(code);
                         var highTemp = 0, lowTemp = 0;
                         var sunriseMins = 360, sunsetMins = 1200;
+                        var moonriseMins = 1200, moonsetMins = 360;
                         if (data.daily && data.daily.temperature_2m_max) {
                             highTemp = Math.round(data.daily.temperature_2m_max[0]);
                             lowTemp  = Math.round(data.daily.temperature_2m_min[0]);
@@ -64,6 +65,16 @@ function getWeather() {
                             var ssParts = ss.split('T')[1].split(':');
                             sunsetMins = parseInt(ssParts[0]) * 60 + parseInt(ssParts[1]);
                         }
+                        if (data.daily && data.daily.moonrise && data.daily.moonrise[0]) {
+                            var mr = data.daily.moonrise[0];
+                            var mrParts = mr.split('T')[1].split(':');
+                            moonriseMins = parseInt(mrParts[0]) * 60 + parseInt(mrParts[1]);
+                        }
+                        if (data.daily && data.daily.moonset && data.daily.moonset[0]) {
+                            var mset = data.daily.moonset[0];
+                            var msParts = mset.split('T')[1].split(':');
+                            moonsetMins = parseInt(msParts[0]) * 60 + parseInt(msParts[1]);
+                        }
                         var msg = {
                             'TEMPERATURE':  temp,
                             'CONDITIONS':   condition,
@@ -73,7 +84,9 @@ function getWeather() {
                             'HIGH_TEMP':    highTemp,
                             'LOW_TEMP':     lowTemp,
                             'SUNRISE_MINS': sunriseMins,
-                            'SUNSET_MINS':  sunsetMins
+                            'SUNSET_MINS':  sunsetMins,
+                            'MOONRISE_MINS': moonriseMins,
+                            'MOONSET_MINS':  moonsetMins
                         };
                         Pebble.sendAppMessage(msg, function() {
                             console.log('Weather sent: ' + temp + 'F, ' + condition + ', ' + windDir + ' ' + wind + 'mph');

@@ -107,11 +107,14 @@ static Star     s_stars[MAX_STARS];
 static int      s_frame_counter = 0; // incremented each minute for pseudo-animation
 
 // Current time phase
-static int s_hour        = 12;
-static int s_minute      = 0;
-static int s_month       = 0;
-static int s_sunrise_mins = 360;   // default 6:00am
-static int s_sunset_mins  = 1200;  // default 8:00pm
+static int s_hour         = 12;
+static int s_minute       = 0;
+static int s_month        = 0;
+static int s_sunrise_mins  = 360;   // default 6:00am
+static int s_sunset_mins   = 1200;  // default 8:00pm
+static int s_moonrise_mins = 1200;  // default 8:00pm
+static int s_moonset_mins  = 360;   // default 6:00am
+static int s_lightning_x   = -1;   // randomized per tap; -1 = use default position
 
 // ───────── Color Helpers ─────────
 
@@ -167,10 +170,23 @@ static GColor sky_bottom_color(int phase) {
 
 static GColor terrain_color(int phase) {
     if (s_weather_code == WEATHER_SNOW) return GColorLightGray;
+    int season = get_season();
+    bool dry = (season == SEASON_SUMMER && s_weather_code == WEATHER_CLEAR);
     switch (phase) {
-        case PHASE_DAWN:  return GColorArmyGreen;
-        case PHASE_DAY:   return GColorIslamicGreen;
-        case PHASE_DUSK:  return GColorDarkGreen;
+        case PHASE_DAWN:
+            if (dry)                    return GColorWindsorTan;
+            if (season == SEASON_FALL)  return GColorWindsorTan;
+            if (season == SEASON_WINTER)return GColorDarkGray;
+            return GColorArmyGreen;
+        case PHASE_DAY:
+            if (season == SEASON_WINTER) return GColorLightGray;
+            if (dry)                     return GColorWindsorTan;
+            if (season == SEASON_FALL)   return GColorOrange;
+            return GColorIslamicGreen;
+        case PHASE_DUSK:
+            if (season == SEASON_WINTER) return GColorDarkGray;
+            if (dry || season == SEASON_FALL) return GColorOrange;
+            return GColorDarkGreen;
         case PHASE_NIGHT: return GColorBlack;
         default:          return GColorDarkGreen;
     }
@@ -367,9 +383,19 @@ static void draw_celestial(GContext *ctx, GRect bounds, bool foggy) {
         total_min   = s_sunset_mins - s_sunrise_mins;
         elapsed_min = current_mins - s_sunrise_mins;
     } else {
-        total_min = (24 * 60 - s_sunset_mins) + s_sunrise_mins;
-        if (current_mins >= s_sunset_mins) elapsed_min = current_mins - s_sunset_mins;
-        else elapsed_min = (24 * 60 - s_sunset_mins) + current_mins;
+        // Moon arc using actual moonrise/moonset from Open-Meteo
+        int mrise = s_moonrise_mins;
+        int mset  = s_moonset_mins;
+        if (mrise < mset) {
+            // Rare: daytime moon
+            total_min   = mset - mrise;
+            elapsed_min = current_mins - mrise;
+        } else {
+            // Typical: rises evening, sets morning (spans midnight)
+            total_min = (24 * 60 - mrise) + mset;
+            if (current_mins >= mrise) elapsed_min = current_mins - mrise;
+            else elapsed_min = (24 * 60 - mrise) + current_mins;
+        }
     }
     if (total_min <= 0) total_min = 1;
     if (elapsed_min < 0) elapsed_min = 0;
@@ -628,8 +654,9 @@ static void draw_flowers(GContext *ctx, GRect bounds) {
 }
 
 static void draw_terrain(GContext *ctx, GRect bounds) {
-    int sky_h = bounds.size.h * 60 / 100;
-    int phase = get_phase(s_hour);
+    int sky_h  = bounds.size.h * 60 / 100;
+    int phase  = get_phase(s_hour);
+    int season = get_season();
 
 #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, terrain_color(phase));
@@ -637,13 +664,10 @@ static void draw_terrain(GContext *ctx, GRect bounds) {
     graphics_context_set_fill_color(ctx, (phase == PHASE_NIGHT) ? GColorDarkGray : GColorLightGray);
 #endif
 
-    // Rolling hills using overlapping circles
     int ground_y = sky_h;
-    // Fill solid ground first
     graphics_fill_rect(ctx, GRect(0, ground_y + 5, bounds.size.w, bounds.size.h - ground_y - 5),
                        0, GCornerNone);
 
-    // Gentle hills
     for (int i = 0; i < 4; i++) {
         int hx = bounds.size.w * (2 * i + 1) / 8;
         int hy = ground_y + 5;
@@ -651,7 +675,29 @@ static void draw_terrain(GContext *ctx, GRect bounds) {
         graphics_fill_circle(ctx, GPoint(hx, hy), hr);
     }
 
-
+#ifdef PBL_COLOR
+    if (season == SEASON_WINTER && s_weather_code != WEATHER_RAIN) {
+        // Snow drifts on hills
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        for (int i = 0; i < 4; i++) {
+            int hx = bounds.size.w * (2 * i + 1) / 8;
+            int hy = ground_y + 5;
+            int hr = 30 + (i * 7) % 15;
+            graphics_fill_circle(ctx, GPoint(hx, hy - hr / 2), hr / 2 + 3);
+        }
+    } else if (season == SEASON_FALL && phase != PHASE_NIGHT) {
+        // Fallen leaves scattered on the ground
+        GColor leaf_c[4] = { GColorOrange, GColorRed, GColorWindsorTan, GColorChromeYellow };
+        for (int i = 0; i < 10; i++) {
+            int lx = (pseudo_rand(i * 2347 + 91) >> 4) % bounds.size.w;
+            int ly = ground_y + 8 + (pseudo_rand(i * 1753) >> 4) % 12;
+            graphics_context_set_fill_color(ctx, leaf_c[i % 4]);
+            graphics_fill_rect(ctx, GRect(lx, ly, 2, 2), 0, GCornerNone);
+        }
+    }
+#else
+    (void)season;
+#endif
 }
 
 // Weather particles (rain drops or snowflakes)
@@ -697,7 +743,7 @@ static void draw_lightning_bolt(GContext *ctx, GRect bounds) {
     if (s_weather_code != WEATHER_STORM) return;
     int sky_h = bounds.size.h * 60 / 100;
     // Jagged bolt: upper-right quadrant of sky
-    int bx = bounds.size.w * 2 / 3;
+    int bx = (s_lightning_x >= 0) ? s_lightning_x : bounds.size.w * 2 / 3;
     int by = sky_h / 5;
 #ifdef PBL_COLOR
     graphics_context_set_stroke_color(ctx, GColorYellow);
@@ -777,6 +823,74 @@ static void draw_complication_bar(GContext *ctx, GRect bounds) {
 #endif
 }
 
+// Fog: dense ground bank + wispy tendrils (fog weather only)
+static void draw_fog(GContext *ctx, GRect bounds) {
+    if (s_weather_code != WEATHER_FOG) return;
+    int sky_h    = bounds.size.h * 60 / 100;
+    int fog_band = sky_h - 5;
+
+#ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, GColorLightGray);
+#else
+    graphics_context_set_fill_color(ctx, GColorWhite);
+#endif
+    // Dense ground fog band
+    graphics_fill_rect(ctx, GRect(0, fog_band, bounds.size.w, 20), 0, GCornerNone);
+    // Wispy tendrils scrolling slowly each minute
+    for (int i = 0; i < 6; i++) {
+        int tx = ((i * bounds.size.w / 6) + s_frame_counter * 5 + i * 19) % bounds.size.w;
+        int ty = fog_band - 12 - (i % 3) * 9;
+        int tr = 14 + (i * 7) % 10;
+        graphics_fill_circle(ctx, GPoint(tx, ty), tr);
+    }
+}
+
+// Wind direction arrow drawn in complication bar (right side)
+static void draw_wind_arrow(GContext *ctx, GRect bounds) {
+    if (!s_weather_valid) return;
+
+    // Map compass string to screen angle (0° = east, clockwise)
+    // Wind is "from" direction; arrow points that way so user reads "wind from N" as up-arrow
+    int deg = 0;
+    const char *d = s_wind_dir;
+    if      (strcmp(d, "N")  == 0) deg = 0;
+    else if (strcmp(d, "NE") == 0) deg = 45;
+    else if (strcmp(d, "E")  == 0) deg = 90;
+    else if (strcmp(d, "SE") == 0) deg = 135;
+    else if (strcmp(d, "S")  == 0) deg = 180;
+    else if (strcmp(d, "SW") == 0) deg = 225;
+    else if (strcmp(d, "W")  == 0) deg = 270;
+    else if (strcmp(d, "NW") == 0) deg = 315;
+
+    int bar_h = bounds.size.h * 18 / 100;
+    int bar_y = bounds.size.h - bar_h;
+    int cx    = bounds.size.w - 11;
+    int cy    = bar_y + bar_h / 2;
+    int r     = 7;
+
+    // deg 0=N=up; trig angle: cos=x, sin=y (down+), so screen_a = deg-90
+    int32_t angle = DEG_TO_TRIGANGLE(deg - 90);
+    int dx = (r * cos_lookup(angle)) / TRIG_MAX_RATIO;
+    int dy = (r * sin_lookup(angle)) / TRIG_MAX_RATIO;
+
+    GPoint tip  = GPoint(cx + dx, cy + dy);
+    GPoint tail = GPoint(cx - dx, cy - dy);
+
+    int32_t ha1 = DEG_TO_TRIGANGLE(deg - 90 + 150);
+    int32_t ha2 = DEG_TO_TRIGANGLE(deg - 90 - 150);
+    int hr = 5;
+    GPoint h1 = GPoint(tip.x + (hr * cos_lookup(ha1)) / TRIG_MAX_RATIO,
+                       tip.y + (hr * sin_lookup(ha1)) / TRIG_MAX_RATIO);
+    GPoint h2 = GPoint(tip.x + (hr * cos_lookup(ha2)) / TRIG_MAX_RATIO,
+                       tip.y + (hr * sin_lookup(ha2)) / TRIG_MAX_RATIO);
+
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_line(ctx, tail, tip);
+    graphics_draw_line(ctx, tip, h1);
+    graphics_draw_line(ctx, tip, h2);
+}
+
 // ───────── Master Draw Callback ─────────
 // Battery indicator (top-right corner)
 static void draw_battery(GContext *ctx, GRect bounds) {
@@ -848,6 +962,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     // 5. Weather particles
     draw_particles(ctx, bounds);
 
+    // 5b. Fog bank (drawn above particles, below terrain)
+    draw_fog(ctx, bounds);
+
     // 6. Shooting star
     draw_shooting_star(ctx, bounds);
 
@@ -869,6 +986,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
     // 10. Complication bar
     draw_complication_bar(ctx, bounds);
+
+    // 10b. Wind direction arrow (right side of bar)
+    draw_wind_arrow(ctx, bounds);
 
     // 11. Battery indicator
     draw_battery(ctx, bounds);
@@ -915,6 +1035,8 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
     if (s_weather_code == WEATHER_STORM) {
         s_lightning_flash = true;
         s_flash_frame = 0;
+        int sw = layer_get_bounds(s_canvas).size.w;
+        s_lightning_x = 20 + (int)(pseudo_rand(s_frame_counter * 137) >> 4) % (sw - 40);
     } else {
         s_shooting_star_active = true;
         s_star_frame = 0;
@@ -988,23 +1110,26 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     Tuple *wdir_tuple = dict_find(iterator, MESSAGE_KEY_WIND_DIR);
     Tuple *sr_tuple   = dict_find(iterator, MESSAGE_KEY_SUNRISE_MINS);
     Tuple *ss_tuple   = dict_find(iterator, MESSAGE_KEY_SUNSET_MINS);
+    Tuple *mr_tuple   = dict_find(iterator, MESSAGE_KEY_MOONRISE_MINS);
+    Tuple *ms_tuple   = dict_find(iterator, MESSAGE_KEY_MOONSET_MINS);
 
     if (temp_tuple) { s_temperature = (int)temp_tuple->value->int32; s_weather_valid = true; }
     if (high_tuple) s_high_temp = (int)high_tuple->value->int32;
     if (low_tuple)  s_low_temp  = (int)low_tuple->value->int32;
     if (wind_tuple) s_wind_speed = (int)wind_tuple->value->int32;
     if (wdir_tuple) snprintf(s_wind_dir, sizeof(s_wind_dir), "%s", wdir_tuple->value->cstring);
-    if (sr_tuple)   s_sunrise_mins = (int)sr_tuple->value->int32;
-    if (ss_tuple)   s_sunset_mins  = (int)ss_tuple->value->int32;
+    if (sr_tuple)   s_sunrise_mins  = (int)sr_tuple->value->int32;
+    if (ss_tuple)   s_sunset_mins   = (int)ss_tuple->value->int32;
+    if (mr_tuple)   s_moonrise_mins = (int)mr_tuple->value->int32;
+    if (ms_tuple)   s_moonset_mins  = (int)ms_tuple->value->int32;
 
     if (s_weather_valid) {
 #ifdef PBL_ROUND
-        // Round screen has limited width at the bottom — use shorter format
-        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° %s %dmph",
-                 s_temperature, s_wind_dir, s_wind_speed);
+        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° %dmph",
+                 s_temperature, s_wind_speed);
 #else
-        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° H:%d L:%d %s %dmph",
-                 s_temperature, s_high_temp, s_low_temp, s_wind_dir, s_wind_speed);
+        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° H:%d L:%d %dmph",
+                 s_temperature, s_high_temp, s_low_temp, s_wind_speed);
 #endif
         text_layer_set_text(s_temp_layer, s_temp_buf);
     }
@@ -1020,7 +1145,6 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         else if (strcmp(c, "T-Storm") == 0)     s_weather_code = WEATHER_STORM;
         else                                    s_weather_code = WEATHER_CLOUDY;
     }
-    s_weather_code = WEATHER_CLEAR;
 
     layer_mark_dirty(s_canvas);
 }
@@ -1091,12 +1215,12 @@ static void window_load(Window *window) {
 #else
     int round_inset = 0;
 #endif
-    s_temp_layer = text_layer_create(GRect(round_inset, comp_text_y, bounds.size.w - 2 * round_inset, 14));
+    s_temp_layer = text_layer_create(GRect(round_inset, comp_text_y, bounds.size.w - 2 * round_inset - 22, 14));
     text_layer_set_background_color(s_temp_layer, GColorClear);
     text_layer_set_text_color(s_temp_layer, GColorWhite);
     text_layer_set_font(s_temp_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
     text_layer_set_text_alignment(s_temp_layer, GTextAlignmentCenter);
-    text_layer_set_text(s_temp_layer, "--° H:-- L:-- -- --mph");
+    text_layer_set_text(s_temp_layer, "--° H:-- L:-- --mph");
     layer_add_child(window_layer, text_layer_get_layer(s_temp_layer));
 
 

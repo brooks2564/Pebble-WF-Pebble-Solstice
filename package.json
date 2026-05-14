@@ -37,7 +37,9 @@
       "LOW_TEMP": 6,
       "WIND_DIR": 7,
       "SUNRISE_MINS": 8,
-      "SUNSET_MINS": 9
+      "SUNSET_MINS": 9,
+      "MOONRISE_MINS": 10,
+      "MOONSET_MINS": 11
     },
     "resources": {
       "media": [
