@@ -79,7 +79,7 @@ static int  s_temperature    = 0;
 static int  s_high_temp      = 0;
 static int  s_low_temp       = 0;
 static int  s_wind_speed     = 0;
-static char s_wind_dir[4]    = "--";
+static char s_wind_dir[5]    = "--";
 static int  s_weather_code   = WEATHER_CLEAR;
 static bool s_weather_valid  = false;
 
@@ -864,7 +864,7 @@ static void draw_wind_arrow(GContext *ctx, GRect bounds) {
 
     int bar_h = bounds.size.h * 18 / 100;
     int bar_y = bounds.size.h - bar_h;
-    int cx    = bounds.size.w - 11;
+    int cx    = bounds.size.w - 22;
     int cy    = bar_y + bar_h / 2;
     int r     = 7;
 
@@ -1128,8 +1128,8 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° %dmph",
                  s_temperature, s_wind_speed);
 #else
-        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° H:%d L:%d %dmph",
-                 s_temperature, s_high_temp, s_low_temp, s_wind_speed);
+        snprintf(s_temp_buf, sizeof(s_temp_buf), "%d° H:%d L:%d %s %dmph",
+                 s_temperature, s_high_temp, s_low_temp, s_wind_dir, s_wind_speed);
 #endif
         text_layer_set_text(s_temp_layer, s_temp_buf);
     }
@@ -1215,7 +1215,7 @@ static void window_load(Window *window) {
 #else
     int round_inset = 0;
 #endif
-    s_temp_layer = text_layer_create(GRect(round_inset, comp_text_y, bounds.size.w - 2 * round_inset - 22, 14));
+    s_temp_layer = text_layer_create(GRect(round_inset, comp_text_y, bounds.size.w - 2 * round_inset - 30, 14));
     text_layer_set_background_color(s_temp_layer, GColorClear);
     text_layer_set_text_color(s_temp_layer, GColorWhite);
     text_layer_set_font(s_temp_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
