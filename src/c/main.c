@@ -293,7 +293,7 @@ static void update_health(void) {
     if (flowers_active < 1 && s_steps > 0) flowers_active = 1;
     for (int i = 0; i < MAX_FLOWERS; i++) {
         if (i < flowers_active) {
-            int target_h = 8 + (i * 3) % 12;
+            int target_h = 20 + (i * 5) % 16;
             s_flowers[i].height = target_h;
             s_flowers[i].bloomed = true;
         } else {
@@ -631,21 +631,21 @@ static void draw_flowers(GContext *ctx, GRect bounds) {
 #else
         graphics_context_set_stroke_color(ctx, GColorBlack);
 #endif
-        graphics_context_set_stroke_width(ctx, 1);
-        graphics_draw_line(ctx, GPoint(fx, stem_base), GPoint(fx + 1, stem_top));
+        graphics_context_set_stroke_width(ctx, 2);
+        graphics_draw_line(ctx, GPoint(fx + 1, stem_base), GPoint(fx + 1, stem_top));
         if (s_flowers[i].bloomed) {
 #ifdef PBL_COLOR
             graphics_context_set_fill_color(ctx, flower_petal_color(i));
 #else
             graphics_context_set_fill_color(ctx, GColorDarkGray);
 #endif
-            int r = 2;
+            int r = 4;
             graphics_fill_circle(ctx, GPoint(fx + 1, stem_top), r);
-            graphics_fill_rect(ctx, GRect(fx - 1, stem_top - r - 1, 4, 2), 0, GCornerNone);
-            graphics_fill_rect(ctx, GRect(fx - 1, stem_top + r, 4, 2), 0, GCornerNone);
+            graphics_fill_rect(ctx, GRect(fx - 3, stem_top - r - 2, 8, 3), 0, GCornerNone);
+            graphics_fill_rect(ctx, GRect(fx - 3, stem_top + r,     8, 3), 0, GCornerNone);
 #ifdef PBL_COLOR
             graphics_context_set_fill_color(ctx, GColorYellow);
-            graphics_fill_rect(ctx, GRect(fx, stem_top - 1, 2, 2), 0, GCornerNone);
+            graphics_fill_circle(ctx, GPoint(fx + 1, stem_top), 2);
 #endif
         }
     }
