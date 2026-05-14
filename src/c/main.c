@@ -921,7 +921,7 @@ static void draw_battery(GContext *ctx, GRect bounds) {
     graphics_fill_rect(ctx, GRect(bx + bw, by + 2, 2, 3), 0, GCornerNone);
     // Fill — red below 20%
 #ifdef PBL_COLOR
-    GColor fill_c = (pct <= 20) ? GColorRed : (pct <= 50) ? GColorYellow : GColorGreen;
+    GColor fill_c = (pct <= 15) ? GColorRed : (pct <= 50) ? GColorYellow : GColorGreen;
 #else
     GColor fill_c = (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorBlack;
 #endif
