@@ -280,9 +280,10 @@ static void init_particles(GRect bounds) {
 
 // ───────── Update Health Data ─────────
 static void update_health(void) {
-#if PBL_API_EXISTS(health_service_peek_current_value)
-    HealthValue steps = health_service_peek_current_value(HealthMetricStepCount);
-    if (steps > 0) s_steps = (int)steps;
+#if PBL_API_EXISTS(health_service_sum_today)
+    s_steps = (int)health_service_sum_today(HealthMetricStepCount);
+#elif PBL_API_EXISTS(health_service_peek_current_value)
+    s_steps = (int)health_service_peek_current_value(HealthMetricStepCount);
 #endif
 
     // Step-driven flower growth (10,000 steps = full garden)
@@ -874,15 +875,15 @@ static void draw_wind_arrow(GContext *ctx, GRect bounds) {
     int r     = 7;
 
     // deg 0=N=up; trig angle: cos=x, sin=y (down+), so screen_a = deg-90
-    int32_t angle = DEG_TO_TRIGANGLE(deg - 90);
+    int32_t angle = DEG_TO_TRIGANGLE(deg + 90);
     int dx = (r * cos_lookup(angle)) / TRIG_MAX_RATIO;
     int dy = (r * sin_lookup(angle)) / TRIG_MAX_RATIO;
 
     GPoint tip  = GPoint(cx + dx, cy + dy);
     GPoint tail = GPoint(cx - dx, cy - dy);
 
-    int32_t ha1 = DEG_TO_TRIGANGLE(deg - 90 + 150);
-    int32_t ha2 = DEG_TO_TRIGANGLE(deg - 90 - 150);
+    int32_t ha1 = DEG_TO_TRIGANGLE(deg + 90 + 150);
+    int32_t ha2 = DEG_TO_TRIGANGLE(deg + 90 - 150);
     int hr = 5;
     GPoint h1 = GPoint(tip.x + (hr * cos_lookup(ha1)) / TRIG_MAX_RATIO,
                        tip.y + (hr * sin_lookup(ha1)) / TRIG_MAX_RATIO);
@@ -901,8 +902,8 @@ static void draw_wind_arrow(GContext *ctx, GRect bounds) {
 static void draw_battery(GContext *ctx, GRect bounds) {
     BatteryChargeState state = battery_state_service_peek();
     int pct = state.charge_percent;
-    int bx = bounds.size.w - 20, by = 4;
-    int bw = 14, bh = 7;
+    int bx = bounds.size.w - 20, by = 3;
+    int bw = 14, bh = 11;
     // Outline
 #ifdef PBL_COLOR
     graphics_context_set_stroke_color(ctx, GColorWhite);
@@ -920,7 +921,7 @@ static void draw_battery(GContext *ctx, GRect bounds) {
     graphics_fill_rect(ctx, GRect(bx + bw, by + 2, 2, 3), 0, GCornerNone);
     // Fill — red below 20%
 #ifdef PBL_COLOR
-    GColor fill_c = (pct <= 20) ? GColorRed : (state.is_charging ? GColorGreen : GColorYellow);
+    GColor fill_c = (pct <= 20) ? GColorRed : GColorWhite;
 #else
     GColor fill_c = (get_phase(s_hour) == PHASE_NIGHT) ? GColorWhite : GColorBlack;
 #endif
