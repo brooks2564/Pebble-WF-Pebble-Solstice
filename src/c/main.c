@@ -7,7 +7,6 @@
  * A sun or moon arcs across the sky on its actual path.
  * Weather data drives: sky color, cloud layers, rain/snow particles.
  * Steps grow a flower garden along the bottom terrain.
- * Heart rate pulses a ring around the celestial body.
  * Tap triggers a brief shooting-star animation.
  *
  * Supports: emery (200x228), basalt (144x168), chalk (180x180 round),
@@ -71,13 +70,6 @@ static Layer     *s_canvas;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_temp_layer;
-static bool       s_has_hr = false;
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-static TextLayer *s_hr_layer;
-static char       s_hr_buf[16];
-#endif
-
-
 static char s_time_buf[8];
 static char s_date_buf[16];
 static char s_temp_buf[48];
@@ -93,11 +85,6 @@ static bool s_weather_valid  = false;
 
 static int    s_steps     = 0;
 static Flower s_flowers[MAX_FLOWERS];
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-static int    s_heart_rate = 0;
-#endif
-
-// Health
 
 
 // Animation
@@ -280,14 +267,6 @@ static void update_health(void) {
 #if PBL_API_EXISTS(health_service_peek_current_value)
     HealthValue steps = health_service_peek_current_value(HealthMetricStepCount);
     if (steps > 0) s_steps = (int)steps;
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-    if (s_has_hr) {
-        HealthValue hr = health_service_peek_current_value(HealthMetricHeartRateBPM);
-        if (hr > 0) s_heart_rate = (int)hr;
-        snprintf(s_hr_buf, sizeof(s_hr_buf), "%d bpm", s_heart_rate > 0 ? s_heart_rate : 0);
-        if (s_hr_layer) text_layer_set_text(s_hr_layer, s_hr_buf);
-    }
-#endif
 #endif
 
     // Step-driven flower growth (10,000 steps = full garden)
@@ -451,21 +430,6 @@ static void draw_celestial(GContext *ctx, GRect bounds, bool foggy) {
     }
 #endif
 
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-    if (s_has_hr && s_heart_rate > 40) {
-        int pulse_phase = (s_frame_counter * 6 + s_heart_rate) % 20;
-        int pulse_r = body_r + 8 + pulse_phase / 4;
-#ifdef PBL_COLOR
-        GColor pulse_c = (s_heart_rate > 120) ? GColorRed :
-                         (s_heart_rate > 80)  ? GColorOrange : GColorMintGreen;
-        graphics_context_set_stroke_color(ctx, pulse_c);
-#else
-        graphics_context_set_stroke_color(ctx, GColorWhite);
-#endif
-        graphics_context_set_stroke_width(ctx, 1);
-        graphics_draw_circle(ctx, GPoint(body_x, body_y), pulse_r);
-    }
-#endif
 
 }
 
@@ -1117,13 +1081,8 @@ static void window_load(Window *window) {
     text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
     layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
 
-    // Temperature/wind bar and optional HR row
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-    s_has_hr = (health_service_metric_accessible(HealthMetricHeartRateBPM,
-                   time_start_of_today(), time_start_of_today() + SECONDS_PER_DAY)
-                   == HealthServiceAccessibilityMaskAvailable);
-#endif
-    int comp_text_y = s_has_hr ? compl_bar_y + 2 : compl_bar_y + 8;
+    // Temperature/wind bar
+    int comp_text_y = compl_bar_y + 8;
 #ifdef PBL_ROUND
     // On round displays inset text to stay within the circular screen edge.
     // The compl bar sits near the bottom where the circle narrows significantly,
@@ -1139,21 +1098,6 @@ static void window_load(Window *window) {
     text_layer_set_text_alignment(s_temp_layer, GTextAlignmentCenter);
     text_layer_set_text(s_temp_layer, "--° H:-- L:-- -- --mph");
     layer_add_child(window_layer, text_layer_get_layer(s_temp_layer));
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-    if (s_has_hr) {
-        s_hr_layer = text_layer_create(GRect(round_inset, comp_text_y + 15, bounds.size.w - 2 * round_inset, 14));
-        text_layer_set_background_color(s_hr_layer, GColorClear);
-#ifdef PBL_COLOR
-        text_layer_set_text_color(s_hr_layer, GColorMelon);
-#else
-        text_layer_set_text_color(s_hr_layer, GColorWhite);
-#endif
-        text_layer_set_font(s_hr_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-        text_layer_set_text_alignment(s_hr_layer, GTextAlignmentCenter);
-        text_layer_set_text(s_hr_layer, "-- bpm");
-        layer_add_child(window_layer, text_layer_get_layer(s_hr_layer));
-    }
-#endif
 
 
 
@@ -1175,9 +1119,6 @@ static void window_unload(Window *window) {
     text_layer_destroy(s_time_layer);
     text_layer_destroy(s_date_layer);
     text_layer_destroy(s_temp_layer);
-#if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_FLINT)
-    if (s_hr_layer) text_layer_destroy(s_hr_layer);
-#endif
 
 
     if (s_anim_timer) {
