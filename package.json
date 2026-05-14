@@ -25,7 +25,8 @@
       "watchface": true
     },
     "capabilities": [
-      "location"
+      "location",
+      "health"
     ],
     "messageKeys": {
       "TEMPERATURE": 0,
