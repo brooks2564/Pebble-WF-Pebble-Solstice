@@ -853,14 +853,22 @@ static void draw_wind_arrow(GContext *ctx, GRect bounds) {
     // Wind is "from" direction; arrow points that way so user reads "wind from N" as up-arrow
     int deg = 0;
     const char *d = s_wind_dir;
-    if      (strcmp(d, "N")  == 0) deg = 0;
-    else if (strcmp(d, "NE") == 0) deg = 45;
-    else if (strcmp(d, "E")  == 0) deg = 90;
-    else if (strcmp(d, "SE") == 0) deg = 135;
-    else if (strcmp(d, "S")  == 0) deg = 180;
-    else if (strcmp(d, "SW") == 0) deg = 225;
-    else if (strcmp(d, "W")  == 0) deg = 270;
-    else if (strcmp(d, "NW") == 0) deg = 315;
+    if      (strcmp(d, "N")   == 0) deg = 0;
+    else if (strcmp(d, "NNE") == 0) deg = 22;
+    else if (strcmp(d, "NE")  == 0) deg = 45;
+    else if (strcmp(d, "ENE") == 0) deg = 67;
+    else if (strcmp(d, "E")   == 0) deg = 90;
+    else if (strcmp(d, "ESE") == 0) deg = 112;
+    else if (strcmp(d, "SE")  == 0) deg = 135;
+    else if (strcmp(d, "SSE") == 0) deg = 157;
+    else if (strcmp(d, "S")   == 0) deg = 180;
+    else if (strcmp(d, "SSW") == 0) deg = 202;
+    else if (strcmp(d, "SW")  == 0) deg = 225;
+    else if (strcmp(d, "WSW") == 0) deg = 247;
+    else if (strcmp(d, "W")   == 0) deg = 270;
+    else if (strcmp(d, "WNW") == 0) deg = 292;
+    else if (strcmp(d, "NW")  == 0) deg = 315;
+    else if (strcmp(d, "NNW") == 0) deg = 337;
 
     int bar_h = bounds.size.h * 18 / 100;
     int bar_y = bounds.size.h - bar_h;
