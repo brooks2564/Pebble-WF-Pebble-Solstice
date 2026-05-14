@@ -293,11 +293,8 @@ static void update_health(void) {
     for (int i = 0; i < MAX_FLOWERS; i++) {
         if (i < flowers_active) {
             int target_h = 8 + (i * 3) % 12;
-            if (s_flowers[i].height < target_h) {
-                s_flowers[i].height += 2;
-                if (s_flowers[i].height > target_h) s_flowers[i].height = target_h;
-            }
-            s_flowers[i].bloomed = (s_flowers[i].height >= target_h);
+            s_flowers[i].height = target_h;
+            s_flowers[i].bloomed = true;
         } else {
             s_flowers[i].height  = 0;
             s_flowers[i].bloomed = false;
